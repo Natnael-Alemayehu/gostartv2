@@ -44,6 +44,10 @@ clean:
 	@echo "Cleaning..."
 	@rm -f main
 
+# Lint the codebase
+lint:
+	@golangci-lint run
+
 # Live Reload
 watch:
 	@if command -v air > /dev/null; then \
@@ -61,4 +65,4 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch docker-run docker-down itest
+.PHONY: all build run test clean watch docker-run docker-down itest lint

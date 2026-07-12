@@ -4,7 +4,7 @@ before:
   - go mod tidy
 
 env:
-  - PACKAGE_PATH=github.com/<user>/<repo>/cmd
+  - PACKAGE_PATH=github.com/Natnael-Alemayehu/gostartv2/cmd/api
 
 builds:
 - binary: "{{ .ProjectName }}"
@@ -19,7 +19,7 @@ builds:
   env:
   - CGO_ENABLED=0
   ldflags:
-  - -s -w -X {{.Env.PACKAGE_PATH}}={{.Version}} 
+  - -s -w -X {{.Env.PACKAGE_PATH}}.Version={{.Version}}
 release:
   prerelease: auto
 

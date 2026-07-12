@@ -1,47 +1,51 @@
 package server
 
 import (
-	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
+	chimw "github.com/go-chi/chi/v5/middleware"
+
+	"gostartv2/internal/httpx"
+	"gostartv2/internal/middleware"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
 
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
+	r.Use(chimw.RequestID)
+	r.Use(middleware.Logger())
+	r.Use(middleware.Recoverer())
+	r.Use(middleware.CORS(s.cfg.CORS))
 
-	r.Get("/", s.HelloWorldHandler)
-
+	r.Get("/", s.helloHandler)
 	r.Get("/health", s.healthHandler)
+	r.Get("/ready", s.readyHandler)
 
 	return r
 }
 
-func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
-	resp := make(map[string]string)
-	resp["message"] = "Hello World"
-
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
-		log.Fatalf("error handling JSON marshal. Err: %v", err)
-	}
-
-	_, _ = w.Write(jsonResp)
+func (s *Server) helloHandler(w http.ResponseWriter, r *http.Request) {
+	httpx.RespondJSON(w, http.StatusOK, map[string]string{
+		"message": "Hello World",
+	})
 }
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResp, _ := json.Marshal(s.db.Health())
-	_, _ = w.Write(jsonResp)
+	httpx.RespondJSON(w, http.StatusOK, map[string]string{
+		"status": "ok",
+	})
+}
+
+func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
+	stats := s.db.Health()
+
+	if stats["status"] != "up" {
+		httpx.RespondError(w, http.StatusServiceUnavailable, "db_unavailable", "database is not reachable")
+		return
+	}
+
+	httpx.RespondJSON(w, http.StatusOK, map[string]string{
+		"status": "ready",
+	})
 }
