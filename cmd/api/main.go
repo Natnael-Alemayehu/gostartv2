@@ -1,20 +1,27 @@
+// Package main is the entry point for the gostartv2 API server binary.
+// It loads configuration, initializes the logger and database, wires up the
+// HTTP server, and runs graceful shutdown on SIGINT/SIGTERM.
 package main
 
 import (
 	"context"
 	"fmt"
+	"gostartv2/internal/config"
+	"gostartv2/internal/database"
+	"gostartv2/internal/logging"
+	"gostartv2/internal/server"
 	"log/slog"
 	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"gostartv2/internal/config"
-	"gostartv2/internal/database"
-	"gostartv2/internal/logging"
-	"gostartv2/internal/server"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+// Version is the build version of the API server binary. It is overridden at
+// link time (e.g. -ldflags "-X main.Version=...") by the release build and
+// defaults to "dev" for local builds. It is logged at startup.
 var Version = "dev"
 
 func gracefulShutdown(apiServer *http.Server, db database.Service, logger *slog.Logger, done chan bool) {
@@ -40,6 +47,7 @@ func gracefulShutdown(apiServer *http.Server, db database.Service, logger *slog.
 	}
 
 	logger.Info("server exiting")
+
 	done <- true
 }
 

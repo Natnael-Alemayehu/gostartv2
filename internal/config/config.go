@@ -1,6 +1,10 @@
+// Package config loads typed application configuration from environment variables
+// and validates required values once at startup. It is the only package that
+// reads os.Getenv or loads .env, keeping all environment access in one place.
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -10,16 +14,25 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// AppEnv identifies a deployment environment. It drives behavior switches such
+// as JSON vs text logging and gates production-only validation rules.
 type AppEnv string
 
 const (
-	EnvLocal   AppEnv = "local"
-	EnvDev     AppEnv = "development"
-	EnvProd    AppEnv = "production"
+	// EnvLocal is the developer's local machine environment.
+	EnvLocal AppEnv = "local"
+	// EnvDev is a shared development environment for integration and QA.
+	EnvDev AppEnv = "development"
+	// EnvProd is the production environment serving real traffic.
+	EnvProd AppEnv = "production"
+	// EnvStaging is the pre-production environment mirroring production.
 	EnvStaging AppEnv = "staging"
-	EnvTest    AppEnv = "test"
+	// EnvTest is the automated test environment used by the test suite.
+	EnvTest AppEnv = "test"
 )
 
+// Config holds all runtime configuration, grouped by subsystem. It is
+// constructed once in main and passed by pointer to the components that need it.
 type Config struct {
 	AppEnv AppEnv
 	Port   int
@@ -31,6 +44,8 @@ type Config struct {
 	CORS CORSConfig
 }
 
+// DBConfig holds PostgreSQL connection parameters and pool sizing for the
+// primary database. DSN renders the connection URL from these fields.
 type DBConfig struct {
 	Host     string
 	Port     int
@@ -43,6 +58,8 @@ type DBConfig struct {
 	MaxIdle  int
 }
 
+// JWTConfig holds the signing secret and token lifetimes used by the auth
+// package to mint and verify JWTs. Secret is required only in production.
 type JWTConfig struct {
 	Secret     string
 	AccessTTL  time.Duration
@@ -50,6 +67,8 @@ type JWTConfig struct {
 	Issuer     string
 }
 
+// CORSConfig holds the cross-origin policy applied by the CORS middleware.
+// In production AllowedOrigins must not be the "*" wildcard.
 type CORSConfig struct {
 	AllowedOrigins   []string
 	AllowedMethods   []string
@@ -58,6 +77,10 @@ type CORSConfig struct {
 	MaxAge           int
 }
 
+// Load reads configuration from the environment, applying sensible defaults
+// for unset values. It loads .env via godotenv first, then builds and validates
+// a Config. Call once during bootstrap; returns an error if required values are
+// missing or production-only constraints are violated.
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -104,15 +127,20 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+// Validate reports every missing required value in a single error so
+// misconfiguration is diagnosed in one pass. In production it additionally
+// enforces a non-wildcard CORS origin and a JWT secret.
 func (c *Config) Validate() error {
 	var missing []string
 
 	if c.DB.Host == "" {
 		missing = append(missing, "DB_HOST")
 	}
+
 	if c.DB.Name == "" {
 		missing = append(missing, "DB_NAME")
 	}
+
 	if c.DB.User == "" {
 		missing = append(missing, "DB_USER")
 	}
@@ -121,8 +149,9 @@ func (c *Config) Validate() error {
 		if c.JWT.Secret == "" {
 			missing = append(missing, "JWT_SECRET (required in production)")
 		}
+
 		if len(c.CORS.AllowedOrigins) == 1 && c.CORS.AllowedOrigins[0] == "*" {
-			return fmt.Errorf("CORS_ALLOWED_ORIGINS must not be wildcard in production")
+			return errors.New("CORS_ALLOWED_ORIGINS must not be wildcard in production")
 		}
 	}
 
@@ -133,6 +162,8 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// DSN renders the PostgreSQL connection URL for this DBConfig, including SSL
+// mode and search path, suitable for sql.Open with the pgx driver.
 func (c *DBConfig) DSN() string {
 	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s&search_path=%s",
 		c.User, c.Password, c.Host, c.Port, c.Name, c.SSLMode, c.Schema)
@@ -142,6 +173,7 @@ func getenv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
+
 	return fallback
 }
 
@@ -151,6 +183,7 @@ func getenvInt(key string, fallback int) int {
 			return n
 		}
 	}
+
 	return fallback
 }
 
@@ -160,6 +193,7 @@ func getenvBool(key string, fallback bool) bool {
 			return b
 		}
 	}
+
 	return fallback
 }
 
@@ -169,6 +203,7 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 			return d
 		}
 	}
+
 	return fallback
 }
 
@@ -178,7 +213,9 @@ func getenvSlice(key string, fallback []string) []string {
 		for i, p := range parts {
 			parts[i] = strings.TrimSpace(p)
 		}
+
 		return parts
 	}
+
 	return fallback
 }

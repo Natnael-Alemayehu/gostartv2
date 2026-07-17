@@ -1,15 +1,21 @@
 package server
 
 import (
+	"gostartv2/internal/httpx"
+	"gostartv2/internal/middleware"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
-
-	"gostartv2/internal/httpx"
-	"gostartv2/internal/middleware"
 )
 
+const statusKey = "status"
+
+// RegisterRoutes builds the chi router used by the API server: it installs
+// the global RequestID, Logger, Recoverer, and CORS middleware, exposes the
+// liveness and readiness endpoints, and mounts the /api/v1 user routes on
+// the injected UserHandler. It is called once from NewServer to obtain the
+// http.Handler passed to http.Server.
 func (s *Server) RegisterRoutes() http.Handler {
 	r := chi.NewRouter()
 
@@ -43,19 +49,19 @@ func (s *Server) helloHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	httpx.RespondJSON(w, http.StatusOK, map[string]string{
-		"status": "ok",
+		statusKey: "ok",
 	})
 }
 
 func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
 	stats := s.db.Health()
 
-	if stats["status"] != "up" {
+	if stats[statusKey] != "up" {
 		httpx.RespondError(w, http.StatusServiceUnavailable, "db_unavailable", "database is not reachable")
 		return
 	}
 
 	httpx.RespondJSON(w, http.StatusOK, map[string]string{
-		"status": "ready",
+		statusKey: "ready",
 	})
 }

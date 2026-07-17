@@ -125,24 +125,24 @@ sqlc.yaml                  # at root
 
 Adopt the `samber/cc-skills-golang` Code Quality category (8 skills) as the project's code quality authority. See AGENTS.md for the full conventions.
 
-- [ ] **2.5.1 Doc comments**
+- [x] **2.5.1 Doc comments**
   - Add godoc comments to all exported functions, methods, types, constants
   - Add `// Package foo ...` declarations to every package
   - Follow `golang-documentation` skill conventions
-- [ ] **2.5.2 Blank imports cleanup**
+- [x] **2.5.2 Blank imports cleanup**
   - Move `_ "github.com/jackc/pgx/v5/stdlib"` to `cmd/api/main.go` and `cmd/migrate/main.go`
   - Remove blank imports from `internal/database` and `internal/testutil`
-- [ ] **2.5.3 Sentinel error package prefix**
+- [x] **2.5.3 Sentinel error package prefix**
   - Update existing sentinel errors to include package prefix
   - e.g. `errors.New("services: user not found")`
-- [ ] **2.5.4 Expand `.golangci.yml`**
+- [x] **2.5.4 Expand `.golangci.yml`**
   - Adopt `golang-lint` skill's recommended 33-linter config
   - Add gosec, bodyclose, sqlclosecheck, errorlint, nolintlint, etc.
   - Add gofumpt formatter
-- [ ] **2.5.5 Fix lint issues**
+- [x] **2.5.5 Fix lint issues**
   - Run `golangci-lint run --fix ./...` for auto-fixable issues
   - Manually fix remaining issues from expanded linter set
-- [ ] **2.5.6 Verify gate** — build + lint + test all green
+- [x] **2.5.6 Verify gate** — build + lint + test all green
 
 ---
 

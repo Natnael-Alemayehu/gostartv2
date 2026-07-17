@@ -1,41 +1,139 @@
 version: "2"
 
 run:
-  timeout: 3m
+  concurrency: 4
+  timeout: 5m
+  tests: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 50
 
 linters:
   default: standard
   enable:
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - misspell
-    - revive
+    - errorlint
+    - nilerr
+    - forcetypeassert
+    - copyloopvar
+    - durationcheck
+    - reassign
+    - gocritic
+    - wsl_v5
+    - whitespace
+    - godot
+    - dupword
+    - predeclared
+    - errname
+    - asciicheck
+    - gocyclo
+    - nestif
+    - funlen
+    - dupl
+    - perfsprint
+    - unconvert
+    - goconst
+    - gosec
+    - bidichk
+    - bodyclose
+    - noctx
+    - containedctx
+    - fatcontext
+    - sqlclosecheck
+    - rowserrcheck
+    - sloglint
+    - loggercheck
+    - testifylint
+    - thelper
+    - usetesting
+    - paralleltest
+    - modernize
+    - exptostd
+    - intrange
+    - usestdlibvars
+    - exhaustive
+    - nolintlint
+
+  disable:
+    - lll
+    - prealloc
+    - wrapcheck
+    - err113
+    - mnd
+    - iface
+    - nakedret
+    - noinlineerr
+    - gocognit
+    - cyclop
+    - depguard
+    - goheader
+    - importas
+    - funcorder
+    - godoclint
+    - varnamelen
+    - exhaustruct
+    - gochecknoglobals
+    - gochecknoinits
+    - unparam
+    - makezero
+    - testpackage
+    - embeddedstructfieldcheck
+    - iotamixing
+    - unqueryvet
+    - recvcheck
+    - mirror
+    - protogetter
+    - spancheck
+    - zerologlint
+    - paralleltest
+
+  exclusions:
+    paths:
+      - vendor$
+      - third_party$
+      - testutils$
+      - "internal/db/sqlc"
+    rules:
+      - path: "_test\\.go"
+        linters:
+          - dupl
+          - noctx
+          - goconst
+
   settings:
-    revive:
-      rules:
-        - name: context-as-argument
-        - name: context-keys-type
-        - name: dot-imports
-        - name: error-naming
-        - name: error-strings
-        - name: error-return
-        - name: errorf
-        - name: increment-decrement
-        - name: indent-error-flow
-        - name: range
-        - name: receiver-naming
-        - name: time-naming
-        - name: var-declaration
-        - name: var-naming
+    dupl:
+      threshold: 100
+    errcheck:
+      check-type-assertions: true
+    funlen:
+      lines: 120
+      statements: 80
+    goconst:
+      min-len: 3
+      min-occurrences: 4
+    gocyclo:
+      min-complexity: 13
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
 
 formatters:
   enable:
     - gofmt
+    - gofumpt
+  disable:
+    - gci
     - goimports
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
+    - golines
+    - swaggo
+  settings:
+    gofumpt:
+      extra-rules: true
+  exclusions:
+    generated: lax
+    paths:
+      - "internal/db/sqlc"

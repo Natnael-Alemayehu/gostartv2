@@ -4,11 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"gostartv2/internal/models"
 	"testing"
 
 	"github.com/google/uuid"
-
-	"gostartv2/internal/models"
 )
 
 type mockUserRepo struct {
@@ -29,6 +28,7 @@ func (m *mockUserRepo) Create(ctx context.Context, params models.UserCreate) (*m
 	if m.createFn != nil {
 		return m.createFn(ctx, params)
 	}
+
 	u := &models.User{
 		ID:           uuid.New(),
 		Email:        params.Email,
@@ -36,6 +36,7 @@ func (m *mockUserRepo) Create(ctx context.Context, params models.UserCreate) (*m
 		Name:         params.Name,
 	}
 	m.users[u.ID] = u
+
 	return u, nil
 }
 
@@ -43,10 +44,12 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.User,
 	if m.getFn != nil {
 		return m.getFn(ctx, id)
 	}
+
 	u, ok := m.users[id]
 	if !ok {
 		return nil, sql.ErrNoRows
 	}
+
 	return u, nil
 }
 
@@ -56,6 +59,7 @@ func (m *mockUserRepo) GetByEmail(ctx context.Context, email string) (*models.Us
 			return u, nil
 		}
 	}
+
 	return nil, sql.ErrNoRows
 }
 
@@ -63,10 +67,12 @@ func (m *mockUserRepo) List(ctx context.Context, limit, offset int32) ([]*models
 	if m.listFn != nil {
 		return m.listFn(ctx, limit, offset)
 	}
+
 	users := make([]*models.User, 0, len(m.users))
 	for _, u := range m.users {
 		users = append(users, u)
 	}
+
 	return users, nil
 }
 
@@ -74,19 +80,24 @@ func (m *mockUserRepo) Update(ctx context.Context, id uuid.UUID, params models.U
 	if m.updateFn != nil {
 		return m.updateFn(ctx, id, params)
 	}
+
 	u, ok := m.users[id]
 	if !ok {
 		return nil, sql.ErrNoRows
 	}
+
 	if params.Email != nil {
 		u.Email = *params.Email
 	}
+
 	if params.Name != nil {
 		u.Name = *params.Name
 	}
+
 	if params.PasswordHash != nil {
 		u.PasswordHash = *params.PasswordHash
 	}
+
 	return u, nil
 }
 
@@ -94,10 +105,13 @@ func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	if m.deleteFn != nil {
 		return m.deleteFn(ctx, id)
 	}
+
 	if _, ok := m.users[id]; !ok {
 		return sql.ErrNoRows
 	}
+
 	delete(m.users, id)
+
 	return nil
 }
 
@@ -113,12 +127,15 @@ func TestUserService_Create(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create returned error: %v", err)
 	}
+
 	if user.Email != "alice@example.com" {
 		t.Errorf("expected email alice@example.com, got %s", user.Email)
 	}
+
 	if user.PasswordHash == "" || user.PasswordHash == "supersecret" {
 		t.Error("expected password to be hashed, not empty or plaintext")
 	}
+
 	if user.ID == uuid.Nil {
 		t.Error("expected non-nil ID")
 	}
@@ -197,6 +214,7 @@ func TestUserService_Update(t *testing.T) {
 
 	newName := "Carol Updated"
 	newPassword := "newpassword123"
+
 	updated, err := svc.Update(t.Context(), user.ID, UpdateUserInput{
 		Name:     &newName,
 		Password: &newPassword,
@@ -204,9 +222,11 @@ func TestUserService_Update(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Update returned error: %v", err)
 	}
+
 	if updated.Name != "Carol Updated" {
 		t.Errorf("expected name Carol Updated, got %s", updated.Name)
 	}
+
 	if updated.PasswordHash == "supersecret" || updated.PasswordHash == "newpassword123" {
 		t.Error("expected updated password to be hashed")
 	}
@@ -217,6 +237,7 @@ func TestUserService_Update_NotFound(t *testing.T) {
 	svc := NewUserService(repo)
 
 	name := "x"
+
 	_, err := svc.Update(t.Context(), uuid.New(), UpdateUserInput{Name: &name})
 	if !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound, got %v", err)

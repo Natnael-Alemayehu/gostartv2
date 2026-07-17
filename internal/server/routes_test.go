@@ -3,16 +3,14 @@ package server
 import (
 	"context"
 	"database/sql"
+	"gostartv2/internal/config"
+	"gostartv2/internal/database"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"log/slog"
-
-	"gostartv2/internal/config"
-	"gostartv2/internal/database"
 )
 
 type mockDB struct {
@@ -23,6 +21,7 @@ func (m *mockDB) Health() map[string]string {
 	if m.healthy {
 		return map[string]string{"status": "up", "message": "It's healthy"}
 	}
+
 	return map[string]string{"status": "down", "error": "db down"}
 }
 
@@ -56,6 +55,7 @@ func newTestServer(db database.Service) *Server {
 
 func TestHelloHandler(t *testing.T) {
 	s := newTestServer(&mockDB{healthy: true})
+
 	server := httptest.NewServer(http.HandlerFunc(s.helloHandler))
 	defer server.Close()
 
@@ -86,6 +86,7 @@ func TestHelloHandler(t *testing.T) {
 
 func TestReadyHandlerUp(t *testing.T) {
 	s := newTestServer(&mockDB{healthy: true})
+
 	server := httptest.NewServer(http.HandlerFunc(s.readyHandler))
 	defer server.Close()
 
@@ -102,6 +103,7 @@ func TestReadyHandlerUp(t *testing.T) {
 
 func TestReadyHandlerDown(t *testing.T) {
 	s := newTestServer(&mockDB{healthy: false})
+
 	server := httptest.NewServer(http.HandlerFunc(s.readyHandler))
 	defer server.Close()
 
@@ -118,6 +120,7 @@ func TestReadyHandlerDown(t *testing.T) {
 
 func TestHealthHandler(t *testing.T) {
 	s := newTestServer(&mockDB{healthy: true})
+
 	server := httptest.NewServer(http.HandlerFunc(s.healthHandler))
 	defer server.Close()
 

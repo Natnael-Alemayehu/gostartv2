@@ -1,11 +1,12 @@
 package database
 
 import (
+	"gostartv2/internal/config"
+	"gostartv2/internal/testutil"
 	"log/slog"
 	"testing"
 
-	"gostartv2/internal/config"
-	"gostartv2/internal/testutil"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func TestNew(t *testing.T) {
@@ -15,6 +16,7 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() returned error: %v", err)
 	}
+
 	if srv == nil {
 		t.Fatal("New() returned nil")
 	}

@@ -188,7 +188,7 @@ make sqlc-gen       # regenerate sqlc code
 - Do not edit `internal/db/sqlc/` — it is sqlc-generated.
 - **Doc comments required**: every exported function, method, type, constant, and package declaration MUST have a godoc comment starting with the symbol name. Follow `golang-documentation` skill conventions. Package comments use `// Package foo ...`.
 - No inline comments inside function bodies unless explaining non-obvious logic. When ignoring a skill rule, add a comment explaining why.
-- **Blank imports** (`_ "pkg"`) only in `cmd/` packages and test packages. Internal packages must not register driver side effects.
+- **Blank imports** (`_ "pkg"`) only in `cmd/` packages, `*_test.go` files, and test utility packages (`internal/testutil`). Internal packages must not register driver side effects.
 - **Sentinel errors must include the package name prefix**: `errors.New("services: user not found")`.
 - Follow existing import grouping: stdlib first, third-party second, local last.
 - Mimic existing code style and naming conventions.

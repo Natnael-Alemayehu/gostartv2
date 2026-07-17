@@ -5,12 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"gostartv2/internal/models"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
-
-	"gostartv2/internal/models"
 )
 
 type userRepo interface {
@@ -22,26 +21,40 @@ type userRepo interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// UserService applies the business rules around user accounts: password
+// hashing, pagination clamping, and translation of repository errors into
+// domain sentinels. It has no HTTP awareness.
 type UserService struct {
 	repo userRepo
 }
 
+// NewUserService returns a UserService backed by the given repository. The
+// repository is accepted as the consumer-defined userRepo interface so the
+// service can be unit-tested with a fake.
 func NewUserService(repo userRepo) *UserService {
 	return &UserService{repo: repo}
 }
 
+// CreateUserInput is the service-level request to register a new user. The
+// Password is plaintext and is hashed before being persisted.
 type CreateUserInput struct {
 	Email    string
 	Password string
 	Name     string
 }
 
+// UpdateUserInput is the service-level request to patch an existing user.
+// Each pointer field is optional; a nil field leaves that column unchanged so
+// callers can update a subset of fields.
 type UpdateUserInput struct {
 	Email    *string
 	Password *string
 	Name     *string
 }
 
+// Create hashes the password, persists the user, and returns the resulting
+// domain user. A unique-constraint violation from the repository is translated
+// into ErrEmailAlreadyExists.
 func (s *UserService) Create(ctx context.Context, input CreateUserInput) (*models.User, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -57,37 +70,50 @@ func (s *UserService) Create(ctx context.Context, input CreateUserInput) (*model
 		if isUniqueViolation(err) {
 			return nil, ErrEmailAlreadyExists
 		}
+
 		return nil, fmt.Errorf("create user: %w", err)
 	}
+
 	return user, nil
 }
 
+// Get returns the user with the given id. A missing row is translated into
+// ErrUserNotFound.
 func (s *UserService) Get(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
+
 		return nil, fmt.Errorf("get user: %w", err)
 	}
+
 	return user, nil
 }
 
+// GetByEmail returns the user matching the given email, used primarily for
+// credential lookup. A missing row is translated into ErrUserNotFound.
 func (s *UserService) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
+
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
+
 	return user, nil
 }
 
+// List returns a page of users with the caller's limit and offset clamped to
+// sane bounds (default 20, maximum 100, non-negative offset).
 func (s *UserService) List(ctx context.Context, limit, offset int32) ([]*models.User, error) {
 	if limit <= 0 {
 		limit = 20
 	}
+
 	limit = min(limit, 100)
 	offset = max(offset, 0)
 
@@ -95,9 +121,14 @@ func (s *UserService) List(ctx context.Context, limit, offset int32) ([]*models.
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
+
 	return users, nil
 }
 
+// Update patches the user identified by id with the non-nil fields of input.
+// When Password is supplied it is hashed before persistence. Missing-row and
+// unique-constraint outcomes are translated into ErrUserNotFound and
+// ErrEmailAlreadyExists respectively.
 func (s *UserService) Update(ctx context.Context, id uuid.UUID, input UpdateUserInput) (*models.User, error) {
 	params := models.UserUpdate{
 		Email: input.Email,
@@ -109,6 +140,7 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, input UpdateUser
 		if err != nil {
 			return nil, fmt.Errorf("hash password: %w", err)
 		}
+
 		params.PasswordHash = new(string(hash))
 	}
 
@@ -117,19 +149,25 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, input UpdateUser
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
+
 		if isUniqueViolation(err) {
 			return nil, ErrEmailAlreadyExists
 		}
+
 		return nil, fmt.Errorf("update user: %w", err)
 	}
+
 	return user, nil
 }
 
+// Delete removes the user with the given id. The repository error, if any, is
+// wrapped and returned unchanged for the handler to translate.
 func (s *UserService) Delete(ctx context.Context, id uuid.UUID) error {
 	err := s.repo.Delete(ctx, id)
 	if err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
+
 	return nil
 }
 
@@ -137,5 +175,6 @@ func isUniqueViolation(err error) bool {
 	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		return pgErr.Code == "23505"
 	}
+
 	return false
 }

@@ -1,9 +1,16 @@
+// Package handlers implements the HTTP transport layer. Handlers parse and
+// validate requests, call services, and translate service errors into HTTP
+// responses via the httpx helpers. They perform no database access and hold no
+// business logic.
 package handlers
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"gostartv2/internal/httpx"
+	"gostartv2/internal/models"
+	"gostartv2/internal/services"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,12 +18,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-
-	"gostartv2/internal/httpx"
-	"gostartv2/internal/models"
-	"gostartv2/internal/services"
 )
 
+//nolint:dupl // test mock intentionally mirrors this interface
 type userService interface {
 	Create(ctx context.Context, input services.CreateUserInput) (*models.User, error)
 	Get(ctx context.Context, id uuid.UUID) (*models.User, error)
@@ -25,11 +29,16 @@ type userService interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// UserHandler exposes the user resource as HTTP endpoints. It owns request
+// decoding, validation, and the mapping between service errors and HTTP status
+// codes.
 type UserHandler struct {
 	svc       userService
 	validator *validator.Validate
 }
 
+// NewUserHandler returns a UserHandler backed by the given service. A fresh
+// validator instance is constructed for request validation.
 func NewUserHandler(svc userService) *UserHandler {
 	return &UserHandler{
 		svc:       svc,
@@ -61,6 +70,9 @@ type listUsersResponse struct {
 	Users []userResponse `json:"users"`
 }
 
+// Create handles POST requests that register a new user. It decodes and
+// validates the request body, delegates to the user service, and responds with
+// the created user and a 201 status.
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createUserRequest
 	if !decodeAndValidate(w, r, h.validator, &req) {
@@ -80,6 +92,8 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	httpx.RespondJSON(w, http.StatusCreated, toUserResponse(user))
 }
 
+// Get handles GET requests for a single user by id path parameter. An invalid
+// or missing UUID yields a 400; a missing user yields a 404.
 func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUserID(w, r)
 	if !ok {
@@ -95,6 +109,8 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	httpx.RespondJSON(w, http.StatusOK, toUserResponse(user))
 }
 
+// List handles GET requests returning a page of users. Pagination is taken
+// from the limit and offset query parameters, with safe defaults applied.
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 
@@ -112,6 +128,8 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	httpx.RespondJSON(w, http.StatusOK, resp)
 }
 
+// Update handles PATCH requests that modify an existing user identified by the
+// id path parameter. Only the fields present in the request body are changed.
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUserID(w, r)
 	if !ok {
@@ -136,6 +154,8 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	httpx.RespondJSON(w, http.StatusOK, toUserResponse(user))
 }
 
+// Delete handles DELETE requests that remove the user identified by the id
+// path parameter. On success it responds with 204 No Content.
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUserID(w, r)
 	if !ok {
@@ -162,11 +182,13 @@ func toUserResponse(u *models.User) userResponse {
 
 func parseUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	raw := chi.URLParam(r, "id")
+
 	id, err := uuid.Parse(raw)
 	if err != nil {
 		httpx.RespondError(w, http.StatusBadRequest, "invalid_id", "user id must be a valid UUID")
 		return uuid.Nil, false
 	}
+
 	return id, true
 }
 
@@ -175,13 +197,14 @@ func parsePagination(r *http.Request) (int32, int32) {
 	offset := int32(0)
 
 	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			limit = int32(n)
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 100 {
+			limit = int32(n) //nolint:gosec // bounds checked: n <= 100
 		}
 	}
+
 	if v := r.URL.Query().Get("offset"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			offset = int32(n)
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 10000 {
+			offset = int32(n) //nolint:gosec // bounds checked: n <= 10000
 		}
 	}
 
@@ -208,6 +231,7 @@ func decodeAndValidate(w http.ResponseWriter, r *http.Request, v *validator.Vali
 		} else {
 			httpx.RespondError(w, http.StatusBadRequest, "invalid_body", err.Error())
 		}
+
 		return false
 	}
 

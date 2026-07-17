@@ -4,17 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"gostartv2/internal/models"
+	"gostartv2/internal/testutil"
 	"testing"
 
 	"github.com/google/uuid"
-
-	"gostartv2/internal/models"
-	"gostartv2/internal/testutil"
 )
 
 func newRepo(t *testing.T) *Repositories {
 	t.Helper()
 	db := testutil.SetupTestDB(t)
+
 	return NewRepositories(db)
 }
 
@@ -31,9 +31,11 @@ func TestUserRepository_CreateAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
+
 	if created.ID == uuid.Nil {
 		t.Fatal("expected non-nil ID")
 	}
+
 	if created.CreatedAt.IsZero() {
 		t.Fatal("expected non-zero CreatedAt")
 	}
@@ -42,9 +44,11 @@ func TestUserRepository_CreateAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
+
 	if fetched.Email != "alice@example.com" {
 		t.Errorf("expected email alice@example.com, got %s", fetched.Email)
 	}
+
 	if fetched.PasswordHash != "$2a$10$hash" {
 		t.Errorf("expected password hash, got %s", fetched.PasswordHash)
 	}
@@ -65,6 +69,7 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByEmail: %v", err)
 	}
+
 	if got.Name != "Bob" {
 		t.Errorf("expected name Bob, got %s", got.Name)
 	}
@@ -120,6 +125,7 @@ func TestUserRepository_List(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
+
 	if len(users) != 3 {
 		t.Errorf("expected 3 users, got %d", len(users))
 	}
@@ -144,6 +150,7 @@ func TestUserRepository_List_Pagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List page 1: %v", err)
 	}
+
 	if len(first) != 2 {
 		t.Errorf("expected 2 users on page 1, got %d", len(first))
 	}
@@ -152,6 +159,7 @@ func TestUserRepository_List_Pagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List page 2: %v", err)
 	}
+
 	if len(second) != 2 {
 		t.Errorf("expected 2 users on page 2, got %d", len(second))
 	}
@@ -174,18 +182,22 @@ func TestUserRepository_Update_Partial(t *testing.T) {
 	}
 
 	newName := "New Name"
+
 	updated, err := repos.Users.Update(ctx, created.ID, models.UserUpdate{
 		Name: &newName,
 	})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
+
 	if updated.Name != "New Name" {
 		t.Errorf("expected name New Name, got %s", updated.Name)
 	}
+
 	if updated.Email != "update@example.com" {
 		t.Errorf("email should be unchanged, got %s", updated.Email)
 	}
+
 	if updated.PasswordHash != "old-hash" {
 		t.Errorf("password_hash should be unchanged, got %s", updated.PasswordHash)
 	}
@@ -206,6 +218,7 @@ func TestUserRepository_Update_AllFields(t *testing.T) {
 	newEmail := "new@example.com"
 	newName := "New"
 	newHash := "new-hash"
+
 	updated, err := repos.Users.Update(ctx, created.ID, models.UserUpdate{
 		Email:        &newEmail,
 		Name:         &newName,
@@ -214,6 +227,7 @@ func TestUserRepository_Update_AllFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
+
 	if updated.Email != "new@example.com" || updated.Name != "New" || updated.PasswordHash != "new-hash" {
 		t.Errorf("unexpected updated user: %+v", updated)
 	}
@@ -249,6 +263,7 @@ func TestUserRepository_Count(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Count: %v", err)
 	}
+
 	if count != 0 {
 		t.Errorf("expected 0 users, got %d", count)
 	}
@@ -267,6 +282,7 @@ func TestUserRepository_Count(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Count: %v", err)
 	}
+
 	if count != 2 {
 		t.Errorf("expected 2 users, got %d", count)
 	}
@@ -281,6 +297,7 @@ func TestRepositories_WithTx_Commits(t *testing.T) {
 		_, err := txR.Users.Create(ctx, models.UserCreate{
 			Email: "tx-commit@example.com", PasswordHash: "h", Name: "Tx",
 		})
+
 		return err
 	})
 	if err != nil {
@@ -291,6 +308,7 @@ func TestRepositories_WithTx_Commits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Count: %v", err)
 	}
+
 	if count != 1 {
 		t.Errorf("expected 1 user after committed tx, got %d", count)
 	}
@@ -302,12 +320,14 @@ func TestRepositories_WithTx_RollsBackOnError(t *testing.T) {
 	ctx := t.Context()
 
 	sentinel := errors.New("simulated failure")
+
 	err := repos.WithTx(ctx, func(ctx context.Context, txR *Repositories) error {
 		if _, err := txR.Users.Create(ctx, models.UserCreate{
 			Email: "tx-rollback@example.com", PasswordHash: "h", Name: "Tx",
 		}); err != nil {
 			return err
 		}
+
 		return sentinel
 	})
 	if err == nil {
@@ -322,6 +342,7 @@ func TestRepositories_WithTx_RollsBackOnError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Count: %v", err)
 	}
+
 	if count != 0 {
 		t.Errorf("expected 0 users after rolled-back tx, got %d", count)
 	}

@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"gostartv2/internal/models"
+	"gostartv2/internal/services"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,9 +15,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-
-	"gostartv2/internal/models"
-	"gostartv2/internal/services"
 )
 
 type mockUserService struct {
@@ -30,6 +29,7 @@ func (m *mockUserService) Create(ctx context.Context, input services.CreateUserI
 	if m.createFn != nil {
 		return m.createFn(ctx, input)
 	}
+
 	return &models.User{
 		ID: uuid.New(), Email: input.Email, Name: input.Name,
 	}, nil
@@ -39,6 +39,7 @@ func (m *mockUserService) Get(ctx context.Context, id uuid.UUID) (*models.User, 
 	if m.getFn != nil {
 		return m.getFn(ctx, id)
 	}
+
 	return nil, services.ErrUserNotFound
 }
 
@@ -46,6 +47,7 @@ func (m *mockUserService) List(ctx context.Context, limit, offset int32) ([]*mod
 	if m.listFn != nil {
 		return m.listFn(ctx, limit, offset)
 	}
+
 	return nil, nil
 }
 
@@ -53,6 +55,7 @@ func (m *mockUserService) Update(ctx context.Context, id uuid.UUID, input servic
 	if m.updateFn != nil {
 		return m.updateFn(ctx, id, input)
 	}
+
 	return nil, services.ErrUserNotFound
 }
 
@@ -60,6 +63,7 @@ func (m *mockUserService) Delete(ctx context.Context, id uuid.UUID) error {
 	if m.deleteFn != nil {
 		return m.deleteFn(ctx, id)
 	}
+
 	return nil
 }
 
@@ -72,6 +76,7 @@ func newTestRouter(h *UserHandler) http.Handler {
 		r.Put("/{id}", h.Update)
 		r.Delete("/{id}", h.Delete)
 	})
+
 	return r
 }
 
@@ -79,11 +84,13 @@ func doRequest(t *testing.T, h *UserHandler, method, target string, body any) *h
 	t.Helper()
 
 	var reqBody io.Reader
+
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			t.Fatalf("marshal body: %v", err)
 		}
+
 		reqBody = bytes.NewReader(b)
 	}
 
@@ -100,17 +107,21 @@ func doRequest(t *testing.T, h *UserHandler, method, target string, body any) *h
 
 func decodeBody(t *testing.T, resp *http.Response) map[string]any {
 	t.Helper()
+
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
 	}
+
 	var out map[string]any
 	if len(b) == 0 {
 		return out
 	}
+
 	if err := json.Unmarshal(b, &out); err != nil {
 		t.Fatalf("decode body %q: %v", string(b), err)
 	}
+
 	return out
 }
 
@@ -127,6 +138,7 @@ func TestUserHandler_Create(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("expected 201, got %d", resp.StatusCode)
 	}
+
 	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
 		t.Errorf("expected json content-type, got %s", ct)
 	}
@@ -135,6 +147,7 @@ func TestUserHandler_Create(t *testing.T) {
 	if body["email"] != "alice@example.com" {
 		t.Errorf("expected email in response, got %v", body["email"])
 	}
+
 	if _, ok := body["password_hash"]; ok {
 		t.Error("password_hash must not be exposed in response")
 	}
@@ -155,10 +168,12 @@ func TestUserHandler_Create_ValidationError(t *testing.T) {
 	}
 
 	body := decodeBody(t, resp)
+
 	errObj, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error envelope, got %v", body)
 	}
+
 	if errObj["code"] != "validation_failed" {
 		t.Errorf("expected code validation_failed, got %v", errObj["code"])
 	}
@@ -169,6 +184,7 @@ func TestUserHandler_Create_InvalidJSON(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader("{not json"))
 	req.Header.Set("Content-Type", "application/json")
+
 	w := httptest.NewRecorder()
 	newTestRouter(h).ServeHTTP(w, req)
 
@@ -201,6 +217,7 @@ func TestUserHandler_Get_NotFound(t *testing.T) {
 	h := NewUserHandler(&mockUserService{})
 
 	id := uuid.New()
+
 	resp := doRequest(t, h, http.MethodGet, "/api/v1/users/"+id.String(), nil)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -227,6 +244,7 @@ func TestUserHandler_Get_OK(t *testing.T) {
 			if reqID != id {
 				t.Errorf("unexpected id: %v", reqID)
 			}
+
 			return &models.User{ID: id, Email: "alice@example.com", Name: "Alice"}, nil
 		},
 	})
@@ -262,10 +280,12 @@ func TestUserHandler_List(t *testing.T) {
 	}
 
 	body := decodeBody(t, resp)
+
 	users, ok := body["users"].([]any)
 	if !ok {
 		t.Fatalf("expected users array, got %v", body)
 	}
+
 	if len(users) != 2 {
 		t.Errorf("expected 2 users, got %d", len(users))
 	}
@@ -278,6 +298,7 @@ func TestUserHandler_Update(t *testing.T) {
 			if reqID != id {
 				t.Errorf("unexpected id: %v", reqID)
 			}
+
 			return &models.User{ID: id, Email: "new@example.com", Name: "New"}, nil
 		},
 	})
@@ -325,6 +346,7 @@ func TestUserHandler_Delete(t *testing.T) {
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)
 	}
+
 	if !deleted {
 		t.Error("expected service Delete to be called")
 	}
@@ -345,6 +367,7 @@ func TestUserHandler_InternalError(t *testing.T) {
 	}
 
 	body := decodeBody(t, resp)
+
 	errObj, _ := body["error"].(map[string]any)
 	if errObj["code"] != "internal_error" {
 		t.Errorf("expected code internal_error, got %v", errObj["code"])

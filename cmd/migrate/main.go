@@ -1,16 +1,19 @@
+// Package main is the entry point for the gostartv2 migration runner CLI.
+// It applies, rolls back, and reports the status of the goose SQL migrations
+// embedded in the binary. Subcommands: up, down, status, reset, redo.
 package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"gostartv2/internal/config"
+	"gostartv2/migrations"
 	"log/slog"
 	"os"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
-
-	"gostartv2/internal/config"
-	"gostartv2/migrations"
 )
 
 func main() {
@@ -22,7 +25,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no command given; expected one of: up, down, status, reset, redo")
+		return errors.New("no command given; expected one of: up, down, status, reset, redo")
 	}
 
 	cfg, err := config.Load()
@@ -34,6 +37,7 @@ func run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}
+
 	defer func() {
 		if err := db.Close(); err != nil {
 			slog.Error("close db", "error", err)
@@ -41,36 +45,36 @@ func run(args []string) error {
 	}()
 
 	goose.SetBaseFS(migrations.FS)
+
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("set dialect: %w", err)
 	}
 
+	return runCommand(db, args[0])
+}
+
+func runCommand(db *sql.DB, cmd string) error {
 	const dir = "."
 
-	cmd := args[0]
 	switch cmd {
 	case "up":
-		if err := goose.Up(db, dir); err != nil {
-			return fmt.Errorf("up: %w", err)
-		}
+		return wrapGooseErr("up", goose.Up(db, dir))
 	case "down":
-		if err := goose.Down(db, dir); err != nil {
-			return fmt.Errorf("down: %w", err)
-		}
+		return wrapGooseErr("down", goose.Down(db, dir))
 	case "status":
-		if err := goose.Status(db, dir); err != nil {
-			return fmt.Errorf("status: %w", err)
-		}
+		return wrapGooseErr("status", goose.Status(db, dir))
 	case "reset":
-		if err := goose.Reset(db, dir); err != nil {
-			return fmt.Errorf("reset: %w", err)
-		}
+		return wrapGooseErr("reset", goose.Reset(db, dir))
 	case "redo":
-		if err := goose.Redo(db, dir); err != nil {
-			return fmt.Errorf("redo: %w", err)
-		}
+		return wrapGooseErr("redo", goose.Redo(db, dir))
 	default:
 		return fmt.Errorf("unknown command %q; expected one of: up, down, status, reset, redo", cmd)
+	}
+}
+
+func wrapGooseErr(cmd string, err error) error {
+	if err != nil {
+		return fmt.Errorf("%s: %w", cmd, err)
 	}
 
 	return nil
