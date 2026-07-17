@@ -91,7 +91,8 @@ migrations/*.sql             → goose SQL migrations (embedded via go:embed)
 ### Testing
 - Unit tests use stdlib `testing`.
 - DB integration tests use testcontainers-go (spin up real Postgres).
-- `make test` runs all tests; `make itest` runs only DB integration tests.
+- Shared testcontainers helper lives in `internal/testutil`.
+- `make test` runs all tests; `make itest` runs DB integration tests (`internal/database` + `internal/repositories`).
 
 ## Build & Verify Commands
 
@@ -99,16 +100,16 @@ migrations/*.sql             → goose SQL migrations (embedded via go:embed)
 make build          # go build -o main cmd/api/main.go
 make run            # go run cmd/api/main.go
 make test           # go test ./... -v
-make itest          # go test ./internal/database -v
+make itest          # go test ./internal/database ./internal/repositories -v
 make lint           # golangci-lint run
 make clean          # rm -f main
 make docker-run     # docker compose up --build
 make docker-down    # docker compose down
 make watch          # air live reload
-# Phase 2 additions:
-# make migrate-up    # run goose migrations up
-# make migrate-down  # run goose migrations down
-# make sqlc-gen      # regenerate sqlc code
+make migrate-up     # run goose migrations up
+make migrate-down   # run goose migrations down (one step)
+make migrate-status # show goose migration status
+make sqlc-gen       # regenerate sqlc code
 ```
 
 **Verify gate (per phase):** `go build ./...` + `make lint` + `make test` must all pass before advancing to the next phase.

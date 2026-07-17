@@ -31,7 +31,7 @@ services:
     networks:
       - gostartv2
   psql_bp:
-    image: postgres:latest
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME}

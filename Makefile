@@ -12,6 +12,26 @@ build:
 # Run the application
 run:
 	@go run cmd/api/main.go
+
+# Run goose migrations up
+migrate-up:
+	@echo "Running migrations up..."
+	@go run ./cmd/migrate up
+
+# Run goose migrations down (one step)
+migrate-down:
+	@echo "Running migrations down..."
+	@go run ./cmd/migrate down
+
+# Show goose migration status
+migrate-status:
+	@echo "Migration status..."
+	@go run ./cmd/migrate status
+
+# Regenerate sqlc code
+sqlc-gen:
+	@echo "Generating sqlc code..."
+	@sqlc generate
 # Create DB container
 docker-run:
 	@if docker compose up --build 2>/dev/null; then \
@@ -37,7 +57,7 @@ test:
 # Integrations Tests for the application
 itest:
 	@echo "Running integration tests..."
-	@go test ./internal/database -v
+	@go test ./internal/database ./internal/repositories -v
 
 # Clean the binary
 clean:
@@ -65,4 +85,4 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch docker-run docker-down itest lint
+.PHONY: all build run test clean watch docker-run docker-down itest lint migrate-up migrate-down migrate-status sqlc-gen

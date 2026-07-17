@@ -87,34 +87,34 @@ sqlc.yaml                  # at root
 
 ## Phase 2 — DB layer + migrations + User CRUD
 
-- [ ] **2.1 sqlc setup**
+- [x] **2.1 sqlc setup**
   - `sqlc.yaml` config at root
   - `db/queries/user.sql` query sources
   - Generate type-safe Go into `internal/db/sqlc`
   - `make sqlc-gen` target
-- [ ] **2.2 goose migrations**
+- [x] **2.2 goose migrations**
   - `migrations/00001_users.sql` (embedded via `go:embed`)
   - `cmd/migrate` runner with `up/down/status` subcommands
   - `make migrate-up`, `make migrate-down` targets
-- [ ] **2.3 `internal/models`**
+- [x] **2.3 `internal/models`**
   - `User` domain type
-- [ ] **2.4 `internal/repositories`**
+- [x] **2.4 `internal/repositories`**
   - `UserRepository` over sqlc queries
   - `WithTx` transaction helper
   - Context-aware methods
-- [ ] **2.5 `internal/services`**
+- [x] **2.5 `internal/services`**
   - `UserService` (create/get/list/update/delete)
   - bcrypt password hashing
-- [ ] **2.6 `internal/handlers`**
+- [x] **2.6 `internal/handlers`**
   - `UserHandler` CRUD endpoints
   - Request DTOs + `validator/v10` validation
-- [ ] **2.7 Routes**
+- [x] **2.7 Routes**
   - `/api/v1/users` route group
-- [ ] **2.8 Tests**
+- [x] **2.8 Tests**
   - Service unit tests (mock repo)
   - Handler `httptest` tests
   - Repository integration tests (testcontainers)
-- [ ] **2.9 Verify gate** — build + lint + test all green
+- [x] **2.9 Verify gate** — build + lint + test all green
 
 ---
 

@@ -16,6 +16,7 @@ type Service interface {
 	Health() map[string]string
 	Ping(ctx context.Context) error
 	Close() error
+	DB() *sql.DB
 }
 
 type service struct {
@@ -67,4 +68,8 @@ func (s *service) Health() map[string]string {
 func (s *service) Close() error {
 	s.logger.Info("disconnecting from database")
 	return s.db.Close()
+}
+
+func (s *service) DB() *sql.DB {
+	return s.db
 }

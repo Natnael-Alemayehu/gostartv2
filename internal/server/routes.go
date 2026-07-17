@@ -22,6 +22,16 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Get("/health", s.healthHandler)
 	r.Get("/ready", s.readyHandler)
 
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/users", func(r chi.Router) {
+			r.Get("/", s.userHandler.List)
+			r.Post("/", s.userHandler.Create)
+			r.Get("/{id}", s.userHandler.Get)
+			r.Put("/{id}", s.userHandler.Update)
+			r.Delete("/{id}", s.userHandler.Delete)
+		})
+	})
+
 	return r
 }
 

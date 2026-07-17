@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -30,6 +31,10 @@ func (m *mockDB) Ping(ctx context.Context) error {
 }
 
 func (m *mockDB) Close() error {
+	return nil
+}
+
+func (m *mockDB) DB() *sql.DB {
 	return nil
 }
 

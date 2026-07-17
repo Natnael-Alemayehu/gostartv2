@@ -31,6 +31,10 @@ func RespondError(w http.ResponseWriter, status int, code, message string) {
 	})
 }
 
+func RespondNoContent(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func DecodeJSON(r *http.Request, dst any) error {
 	return json.NewDecoder(r.Body).Decode(dst)
 }
