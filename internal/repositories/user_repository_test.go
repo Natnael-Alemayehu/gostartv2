@@ -12,17 +12,16 @@ import (
 	"gostartv2/internal/testutil"
 )
 
-func newRepo(t *testing.T) (*Repositories, func()) {
+func newRepo(t *testing.T) *Repositories {
 	t.Helper()
-	db, teardown := testutil.SetupTestDB(t)
-	return NewRepositories(db), teardown
+	db := testutil.SetupTestDB(t)
+	return NewRepositories(db)
 }
 
 func TestUserRepository_CreateAndGet(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	created, err := repos.Users.Create(ctx, models.UserCreate{
 		Email:        "alice@example.com",
@@ -52,10 +51,9 @@ func TestUserRepository_CreateAndGet(t *testing.T) {
 }
 
 func TestUserRepository_GetByEmail(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	if _, err := repos.Users.Create(ctx, models.UserCreate{
 		Email: "bob@example.com", PasswordHash: "h", Name: "Bob",
@@ -77,19 +75,17 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 }
 
 func TestUserRepository_GetByID_NotFound(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	if _, err := repos.Users.GetByID(context.Background(), uuid.New()); !errors.Is(err, sql.ErrNoRows) {
+	if _, err := repos.Users.GetByID(t.Context(), uuid.New()); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected sql.ErrNoRows, got %v", err)
 	}
 }
 
 func TestUserRepository_Create_DuplicateEmail(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	if _, err := repos.Users.Create(ctx, models.UserCreate{
 		Email: "dup@example.com", PasswordHash: "h", Name: "Dup",
@@ -106,12 +102,11 @@ func TestUserRepository_Create_DuplicateEmail(t *testing.T) {
 }
 
 func TestUserRepository_List(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if _, err := repos.Users.Create(ctx, models.UserCreate{
 			Email:        "user" + string(rune('a'+i)) + "@example.com",
 			PasswordHash: "h",
@@ -131,12 +126,11 @@ func TestUserRepository_List(t *testing.T) {
 }
 
 func TestUserRepository_List_Pagination(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		if _, err := repos.Users.Create(ctx, models.UserCreate{
 			Email:        "p" + string(rune('a'+i)) + "@example.com",
 			PasswordHash: "h",
@@ -168,10 +162,9 @@ func TestUserRepository_List_Pagination(t *testing.T) {
 }
 
 func TestUserRepository_Update_Partial(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	created, err := repos.Users.Create(ctx, models.UserCreate{
 		Email: "update@example.com", PasswordHash: "old-hash", Name: "Old",
@@ -199,10 +192,9 @@ func TestUserRepository_Update_Partial(t *testing.T) {
 }
 
 func TestUserRepository_Update_AllFields(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	created, err := repos.Users.Create(ctx, models.UserCreate{
 		Email: "all@example.com", PasswordHash: "old", Name: "Old",
@@ -228,10 +220,9 @@ func TestUserRepository_Update_AllFields(t *testing.T) {
 }
 
 func TestUserRepository_Delete(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	created, err := repos.Users.Create(ctx, models.UserCreate{
 		Email: "del@example.com", PasswordHash: "h", Name: "Del",
@@ -250,10 +241,9 @@ func TestUserRepository_Delete(t *testing.T) {
 }
 
 func TestUserRepository_Count(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	count, err := repos.Users.Count(ctx)
 	if err != nil {
@@ -263,7 +253,7 @@ func TestUserRepository_Count(t *testing.T) {
 		t.Errorf("expected 0 users, got %d", count)
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if _, err := repos.Users.Create(ctx, models.UserCreate{
 			Email:        "c" + string(rune('a'+i)) + "@example.com",
 			PasswordHash: "h",
@@ -283,10 +273,9 @@ func TestUserRepository_Count(t *testing.T) {
 }
 
 func TestRepositories_WithTx_Commits(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	err := repos.WithTx(ctx, func(ctx context.Context, txR *Repositories) error {
 		_, err := txR.Users.Create(ctx, models.UserCreate{
@@ -308,21 +297,25 @@ func TestRepositories_WithTx_Commits(t *testing.T) {
 }
 
 func TestRepositories_WithTx_RollsBackOnError(t *testing.T) {
-	repos, teardown := newRepo(t)
-	defer teardown()
+	repos := newRepo(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
+	sentinel := errors.New("simulated failure")
 	err := repos.WithTx(ctx, func(ctx context.Context, txR *Repositories) error {
 		if _, err := txR.Users.Create(ctx, models.UserCreate{
 			Email: "tx-rollback@example.com", PasswordHash: "h", Name: "Tx",
 		}); err != nil {
 			return err
 		}
-		return errors.New("simulated failure")
+		return sentinel
 	})
 	if err == nil {
 		t.Fatal("expected error from WithTx, got nil")
+	}
+
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected returned error to wrap the original cause; errors.Is failed. got: %v", err)
 	}
 
 	count, err := repos.Users.Count(ctx)

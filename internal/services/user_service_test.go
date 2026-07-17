@@ -105,7 +105,7 @@ func TestUserService_Create(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserService(repo)
 
-	user, err := svc.Create(context.Background(), CreateUserInput{
+	user, err := svc.Create(t.Context(), CreateUserInput{
 		Email:    "alice@example.com",
 		Password: "supersecret",
 		Name:     "Alice",
@@ -128,7 +128,7 @@ func TestUserService_Create_HashesPassword(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserService(repo)
 
-	user, err := svc.Create(context.Background(), CreateUserInput{
+	user, err := svc.Create(t.Context(), CreateUserInput{
 		Email:    "bob@example.com",
 		Password: "supersecret",
 		Name:     "Bob",
@@ -147,7 +147,7 @@ func TestUserService_Get_NotFound(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserService(repo)
 
-	_, err := svc.Get(context.Background(), uuid.New())
+	_, err := svc.Get(t.Context(), uuid.New())
 	if !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound, got %v", err)
 	}
@@ -157,7 +157,7 @@ func TestUserService_GetByEmail_NotFound(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserService(repo)
 
-	_, err := svc.GetByEmail(context.Background(), "missing@example.com")
+	_, err := svc.GetByEmail(t.Context(), "missing@example.com")
 	if !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound, got %v", err)
 	}
@@ -173,12 +173,12 @@ func TestUserService_List_DefaultsAndClamps(t *testing.T) {
 		return nil, nil
 	}
 
-	_, _ = svc.List(context.Background(), 0, -1)
+	_, _ = svc.List(t.Context(), 0, -1)
 	if calls[0].limit != 20 || calls[0].offset != 0 {
 		t.Errorf("expected default limit=20 offset=0, got limit=%d offset=%d", calls[0].limit, calls[0].offset)
 	}
 
-	_, _ = svc.List(context.Background(), 500, 0)
+	_, _ = svc.List(t.Context(), 500, 0)
 	if calls[1].limit != 100 {
 		t.Errorf("expected clamped limit=100, got %d", calls[1].limit)
 	}
@@ -188,7 +188,7 @@ func TestUserService_Update(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserService(repo)
 
-	user, err := svc.Create(context.Background(), CreateUserInput{
+	user, err := svc.Create(t.Context(), CreateUserInput{
 		Email: "carol@example.com", Password: "supersecret", Name: "Carol",
 	})
 	if err != nil {
@@ -197,7 +197,7 @@ func TestUserService_Update(t *testing.T) {
 
 	newName := "Carol Updated"
 	newPassword := "newpassword123"
-	updated, err := svc.Update(context.Background(), user.ID, UpdateUserInput{
+	updated, err := svc.Update(t.Context(), user.ID, UpdateUserInput{
 		Name:     &newName,
 		Password: &newPassword,
 	})
@@ -217,7 +217,7 @@ func TestUserService_Update_NotFound(t *testing.T) {
 	svc := NewUserService(repo)
 
 	name := "x"
-	_, err := svc.Update(context.Background(), uuid.New(), UpdateUserInput{Name: &name})
+	_, err := svc.Update(t.Context(), uuid.New(), UpdateUserInput{Name: &name})
 	if !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound, got %v", err)
 	}
@@ -227,18 +227,18 @@ func TestUserService_Delete(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserService(repo)
 
-	user, err := svc.Create(context.Background(), CreateUserInput{
+	user, err := svc.Create(t.Context(), CreateUserInput{
 		Email: "dave@example.com", Password: "supersecret", Name: "Dave",
 	})
 	if err != nil {
 		t.Fatalf("Create returned error: %v", err)
 	}
 
-	if err := svc.Delete(context.Background(), user.ID); err != nil {
+	if err := svc.Delete(t.Context(), user.ID); err != nil {
 		t.Fatalf("Delete returned error: %v", err)
 	}
 
-	if _, err := svc.Get(context.Background(), user.ID); !errors.Is(err, ErrUserNotFound) {
+	if _, err := svc.Get(t.Context(), user.ID); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound after delete, got %v", err)
 	}
 }

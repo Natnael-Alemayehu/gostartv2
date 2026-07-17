@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"gostartv2/internal/db/sqlc"
@@ -22,11 +23,7 @@ func NewRepositories(db *sql.DB) *Repositories {
 	}
 }
 
-func (r *Repositories) DB() *sql.DB {
-	return r.db
-}
-
-func (r *Repositories) WithTx(ctx context.Context, fn func(ctx context.Context, r *Repositories) error) error {
+func (r *Repositories) WithTx(ctx context.Context, fn func(ctx context.Context, txR *Repositories) error) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -45,7 +42,7 @@ func (r *Repositories) WithTx(ctx context.Context, fn func(ctx context.Context, 
 
 	if err := fn(ctx, txR); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			return fmt.Errorf("rollback: %w (cause: %v)", rbErr, err)
+			return errors.Join(err, fmt.Errorf("rollback: %w", rbErr))
 		}
 		return err
 	}

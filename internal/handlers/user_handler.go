@@ -63,13 +63,7 @@ type listUsersResponse struct {
 
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createUserRequest
-	if err := httpx.DecodeJSON(r, &req); err != nil {
-		httpx.RespondError(w, http.StatusBadRequest, "invalid_body", "request body is not valid JSON")
-		return
-	}
-
-	if err := h.validator.Struct(req); err != nil {
-		httpx.RespondError(w, http.StatusBadRequest, "validation_failed", err.Error())
+	if !decodeAndValidate(w, r, h.validator, &req) {
 		return
 	}
 
@@ -125,20 +119,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req updateUserRequest
-	if err := httpx.DecodeJSON(r, &req); err != nil {
-		var syntaxErr *json.SyntaxError
-		var unmarshalErr *json.UnmarshalTypeError
-		switch {
-		case errors.As(err, &syntaxErr), errors.As(err, &unmarshalErr):
-			httpx.RespondError(w, http.StatusBadRequest, "invalid_body", "request body is not valid JSON")
-		default:
-			httpx.RespondError(w, http.StatusBadRequest, "invalid_body", err.Error())
-		}
-		return
-	}
-
-	if err := h.validator.Struct(req); err != nil {
-		httpx.RespondError(w, http.StatusBadRequest, "validation_failed", err.Error())
+	if !decodeAndValidate(w, r, h.validator, &req) {
 		return
 	}
 
@@ -216,4 +197,24 @@ func respondServiceError(w http.ResponseWriter, err error) {
 	default:
 		httpx.RespondError(w, http.StatusInternalServerError, "internal_error", "something went wrong")
 	}
+}
+
+func decodeAndValidate(w http.ResponseWriter, r *http.Request, v *validator.Validate, dst any) bool {
+	if err := httpx.DecodeJSON(r, dst); err != nil {
+		if _, ok := errors.AsType[*json.SyntaxError](err); ok {
+			httpx.RespondError(w, http.StatusBadRequest, "invalid_body", "request body is not valid JSON")
+		} else if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
+			httpx.RespondError(w, http.StatusBadRequest, "invalid_body", "request body is not valid JSON")
+		} else {
+			httpx.RespondError(w, http.StatusBadRequest, "invalid_body", err.Error())
+		}
+		return false
+	}
+
+	if err := v.Struct(dst); err != nil {
+		httpx.RespondError(w, http.StatusBadRequest, "validation_failed", err.Error())
+		return false
+	}
+
+	return true
 }

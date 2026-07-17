@@ -46,14 +46,14 @@ func gracefulShutdown(apiServer *http.Server, db database.Service, logger *slog.
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		panic(fmt.Sprintf("failed to load config: %s", err))
+		panic(fmt.Sprintf("load config: %s", err))
 	}
 
 	logger := logging.New(cfg)
 
 	db, err := database.New(cfg.DB, logger)
 	if err != nil {
-		panic(fmt.Sprintf("failed to connect to database: %s", err))
+		panic(fmt.Sprintf("connect to database: %s", err))
 	}
 
 	apiServer := server.NewServer(cfg, logger, db)

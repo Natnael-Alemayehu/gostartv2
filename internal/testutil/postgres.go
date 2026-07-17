@@ -34,9 +34,11 @@ func SkipIfNoDocker(t *testing.T) {
 	_ = conn.Close()
 }
 
-func StartPostgres(t *testing.T) (config.DBConfig, func()) {
+func StartPostgres(t *testing.T) config.DBConfig {
 	t.Helper()
 	SkipIfNoDocker(t)
+
+	ctx := t.Context()
 
 	dbCfg := config.DBConfig{
 		Name:     "database",
@@ -49,7 +51,7 @@ func StartPostgres(t *testing.T) (config.DBConfig, func()) {
 	}
 
 	container, err := postgres.Run(
-		context.Background(),
+		ctx,
 		postgresImage,
 		postgres.WithDatabase(dbCfg.Name),
 		postgres.WithUsername(dbCfg.User),
@@ -63,12 +65,18 @@ func StartPostgres(t *testing.T) (config.DBConfig, func()) {
 		t.Fatalf("could not start postgres container: %v", err)
 	}
 
-	host, err := container.Host(context.Background())
+	t.Cleanup(func() {
+		if err := container.Terminate(context.Background()); err != nil {
+			t.Fatalf("could not teardown postgres container: %v", err)
+		}
+	})
+
+	host, err := container.Host(ctx)
 	if err != nil {
 		t.Fatalf("could not get container host: %v", err)
 	}
 
-	port, err := container.MappedPort(context.Background(), "5432/tcp")
+	port, err := container.MappedPort(ctx, "5432/tcp")
 	if err != nil {
 		t.Fatalf("could not get mapped port: %v", err)
 	}
@@ -81,44 +89,31 @@ func StartPostgres(t *testing.T) (config.DBConfig, func()) {
 		}
 	}
 
-	teardown := func() {
-		if err := container.Terminate(context.Background()); err != nil {
-			t.Fatalf("could not teardown postgres container: %v", err)
-		}
-	}
-
-	return dbCfg, teardown
+	return dbCfg
 }
 
-func SetupTestDB(t *testing.T) (*sql.DB, func()) {
+func SetupTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
-	dbCfg, containerTeardown := StartPostgres(t)
+	dbCfg := StartPostgres(t)
 
 	db, err := sql.Open("pgx", dbCfg.DSN())
 	if err != nil {
-		containerTeardown()
 		t.Fatalf("could not open db: %v", err)
 	}
-
-	goose.SetBaseFS(migrations.FS)
-	if err := goose.SetDialect("postgres"); err != nil {
-		_ = db.Close()
-		containerTeardown()
-		t.Fatalf("set goose dialect: %v", err)
-	}
-	if err := goose.Up(db, "."); err != nil {
-		_ = db.Close()
-		containerTeardown()
-		t.Fatalf("apply migrations: %v", err)
-	}
-
-	teardown := func() {
+	t.Cleanup(func() {
 		if err := db.Close(); err != nil {
 			t.Fatalf("close test db: %v", err)
 		}
-		containerTeardown()
+	})
+
+	goose.SetBaseFS(migrations.FS)
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatalf("set goose dialect: %v", err)
+	}
+	if err := goose.Up(db, "."); err != nil {
+		t.Fatalf("apply migrations: %v", err)
 	}
 
-	return db, teardown
+	return db
 }

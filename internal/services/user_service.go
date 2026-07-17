@@ -88,12 +88,8 @@ func (s *UserService) List(ctx context.Context, limit, offset int32) ([]*models.
 	if limit <= 0 {
 		limit = 20
 	}
-	if limit > 100 {
-		limit = 100
-	}
-	if offset < 0 {
-		offset = 0
-	}
+	limit = min(limit, 100)
+	offset = max(offset, 0)
 
 	users, err := s.repo.List(ctx, limit, offset)
 	if err != nil {
@@ -113,8 +109,7 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, input UpdateUser
 		if err != nil {
 			return nil, fmt.Errorf("hash password: %w", err)
 		}
-		hashed := string(hash)
-		params.PasswordHash = &hashed
+		params.PasswordHash = new(string(hash))
 	}
 
 	user, err := s.repo.Update(ctx, id, params)
@@ -139,8 +134,7 @@ func (s *UserService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		return pgErr.Code == "23505"
 	}
 	return false

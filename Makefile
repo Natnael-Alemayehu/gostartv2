@@ -53,11 +53,11 @@ docker-down:
 # Test the application
 test:
 	@echo "Testing..."
-	@go test ./... -v
+	@go test ./... -v -race
 # Integrations Tests for the application
 itest:
 	@echo "Running integration tests..."
-	@go test ./internal/database ./internal/repositories -v
+	@go test ./internal/database ./internal/repositories -v -race
 
 # Clean the binary
 clean:

@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
@@ -10,8 +9,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	dbCfg, teardown := testutil.StartPostgres(t)
-	defer teardown()
+	dbCfg := testutil.StartPostgres(t)
 
 	srv, err := New(dbCfg, slog.Default())
 	if err != nil {
@@ -23,8 +21,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestHealth(t *testing.T) {
-	dbCfg, teardown := testutil.StartPostgres(t)
-	defer teardown()
+	dbCfg := testutil.StartPostgres(t)
 
 	srv, err := New(dbCfg, slog.Default())
 	if err != nil {
@@ -72,8 +69,7 @@ func TestHealthDown(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	dbCfg, teardown := testutil.StartPostgres(t)
-	defer teardown()
+	dbCfg := testutil.StartPostgres(t)
 
 	srv, err := New(dbCfg, slog.Default())
 	if err != nil {
@@ -86,8 +82,7 @@ func TestClose(t *testing.T) {
 }
 
 func TestDB(t *testing.T) {
-	dbCfg, teardown := testutil.StartPostgres(t)
-	defer teardown()
+	dbCfg := testutil.StartPostgres(t)
 
 	srv, err := New(dbCfg, slog.Default())
 	if err != nil {
@@ -98,7 +93,7 @@ func TestDB(t *testing.T) {
 		t.Fatal("expected DB() to return non-nil *sql.DB")
 	}
 
-	if err := srv.DB().PingContext(context.Background()); err != nil {
+	if err := srv.DB().PingContext(t.Context()); err != nil {
 		t.Fatalf("expected DB() to be pingable, got %v", err)
 	}
 }
