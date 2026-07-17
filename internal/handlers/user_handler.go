@@ -24,7 +24,7 @@ import (
 type userService interface {
 	Create(ctx context.Context, input services.CreateUserInput) (*models.User, error)
 	Get(ctx context.Context, id uuid.UUID) (*models.User, error)
-	List(ctx context.Context, limit, offset int32) ([]*models.User, error)
+	List(ctx context.Context, limit int32, cursor *models.PageCursor) (*services.ListResult, error)
 	Update(ctx context.Context, id uuid.UUID, input services.UpdateUserInput) (*models.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -66,8 +66,14 @@ type userResponse struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type cursorResponse struct {
+	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID `json:"id"`
+}
+
 type listUsersResponse struct {
-	Users []userResponse `json:"users"`
+	Users      []userResponse  `json:"users"`
+	NextCursor *cursorResponse `json:"next_cursor,omitempty"`
 }
 
 // Create handles POST requests that register a new user. It decodes and
@@ -109,20 +115,29 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	httpx.RespondJSON(w, http.StatusOK, toUserResponse(user))
 }
 
-// List handles GET requests returning a page of users. Pagination is taken
-// from the limit and offset query parameters, with safe defaults applied.
+// List handles GET requests returning a page of users. Pagination uses
+// cursor-based paging: the first page omits the cursor query params, and
+// subsequent pages pass back the next_cursor value from the previous response.
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
-	limit, offset := parsePagination(r)
+	limit := parseLimit(r)
+	cursor := parseCursor(r)
 
-	users, err := h.svc.List(r.Context(), limit, offset)
+	result, err := h.svc.List(r.Context(), limit, cursor)
 	if err != nil {
 		respondServiceError(w, err)
 		return
 	}
 
-	resp := listUsersResponse{Users: make([]userResponse, 0, len(users))}
-	for _, u := range users {
+	resp := listUsersResponse{Users: make([]userResponse, 0, len(result.Users))}
+	for _, u := range result.Users {
 		resp.Users = append(resp.Users, toUserResponse(u))
+	}
+
+	if result.NextCursor != nil {
+		resp.NextCursor = &cursorResponse{
+			CreatedAt: result.NextCursor.CreatedAt,
+			ID:        result.NextCursor.ID,
+		}
 	}
 
 	httpx.RespondJSON(w, http.StatusOK, resp)
@@ -192,9 +207,8 @@ func parseUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	return id, true
 }
 
-func parsePagination(r *http.Request) (int32, int32) {
+func parseLimit(r *http.Request) int32 {
 	limit := int32(20)
-	offset := int32(0)
 
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 100 {
@@ -202,13 +216,31 @@ func parsePagination(r *http.Request) (int32, int32) {
 		}
 	}
 
-	if v := r.URL.Query().Get("offset"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 10000 {
-			offset = int32(n) //nolint:gosec // bounds checked: n <= 10000
-		}
+	return limit
+}
+
+func parseCursor(r *http.Request) *models.PageCursor {
+	createdAtStr := r.URL.Query().Get("cursor_created_at")
+
+	idStr := r.URL.Query().Get("cursor_id")
+	if createdAtStr == "" || idStr == "" {
+		return nil
 	}
 
-	return limit, offset
+	createdAt, err := time.Parse(time.RFC3339Nano, createdAtStr)
+	if err != nil {
+		return nil
+	}
+
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return nil
+	}
+
+	return &models.PageCursor{
+		CreatedAt: createdAt,
+		ID:        id,
+	}
 }
 
 func respondServiceError(w http.ResponseWriter, err error) {

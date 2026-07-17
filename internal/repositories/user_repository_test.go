@@ -1,3 +1,5 @@
+//go:build integration
+
 package repositories
 
 import (
@@ -121,7 +123,7 @@ func TestUserRepository_List(t *testing.T) {
 		}
 	}
 
-	users, err := repos.Users.List(ctx, 10, 0)
+	users, err := repos.Users.List(ctx, models.ListUsersInput{Limit: 10})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -131,7 +133,7 @@ func TestUserRepository_List(t *testing.T) {
 	}
 }
 
-func TestUserRepository_List_Pagination(t *testing.T) {
+func TestUserRepository_List_CursorPagination(t *testing.T) {
 	repos := newRepo(t)
 
 	ctx := t.Context()
@@ -146,7 +148,7 @@ func TestUserRepository_List_Pagination(t *testing.T) {
 		}
 	}
 
-	first, err := repos.Users.List(ctx, 2, 0)
+	first, err := repos.Users.List(ctx, models.ListUsersInput{Limit: 2})
 	if err != nil {
 		t.Fatalf("List page 1: %v", err)
 	}
@@ -155,7 +157,12 @@ func TestUserRepository_List_Pagination(t *testing.T) {
 		t.Errorf("expected 2 users on page 1, got %d", len(first))
 	}
 
-	second, err := repos.Users.List(ctx, 2, 2)
+	cursor := &models.PageCursor{
+		CreatedAt: first[1].CreatedAt,
+		ID:        first[1].ID,
+	}
+
+	second, err := repos.Users.List(ctx, models.ListUsersInput{Limit: 2, Cursor: cursor})
 	if err != nil {
 		t.Fatalf("List page 2: %v", err)
 	}
@@ -164,8 +171,12 @@ func TestUserRepository_List_Pagination(t *testing.T) {
 		t.Errorf("expected 2 users on page 2, got %d", len(second))
 	}
 
-	if first[0].ID == second[0].ID {
-		t.Error("pagination returned the same user on different pages")
+	for _, u1 := range first {
+		for _, u2 := range second {
+			if u1.ID == u2.ID {
+				t.Fatal("pagination returned the same user on different pages")
+			}
+		}
 	}
 }
 

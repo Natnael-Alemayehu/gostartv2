@@ -16,7 +16,7 @@ import (
 // health reporting, access to the underlying *sql.DB, and graceful close. It is
 // declared here so callers depend only on the capabilities they use.
 type Service interface {
-	Health() map[string]string
+	Health(ctx context.Context) map[string]string
 	Ping(ctx context.Context) error
 	Close() error
 	DB() *sql.DB
@@ -27,9 +27,9 @@ type service struct {
 	logger *slog.Logger
 }
 
-// New opens a pgx-backed *sql.DB using cfg.DSN, applies pool sizing and a
-// one-hour connection lifetime from cfg, and returns a Service ready for use.
-// Returns an error if the driver cannot open the database.
+// New opens a pgx-backed *sql.DB using cfg.DSN, applies pool sizing and
+// lifetime settings from cfg, and returns a Service ready for use. Returns an
+// error if the driver cannot open the database.
 func New(cfg config.DBConfig, logger *slog.Logger) (Service, error) {
 	db, err := sql.Open("pgx", cfg.DSN())
 	if err != nil {
@@ -39,6 +39,7 @@ func New(cfg config.DBConfig, logger *slog.Logger) (Service, error) {
 	db.SetMaxOpenConns(cfg.MaxConns)
 	db.SetMaxIdleConns(cfg.MaxIdle)
 	db.SetConnMaxLifetime(time.Hour)
+	db.SetConnMaxIdleTime(5 * time.Minute)
 
 	s := &service{
 		db:     db,
@@ -54,12 +55,12 @@ func (s *service) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
 
-// Health probes the database with a one-second timeout and returns a status
-// map for the readiness endpoint: "status" is "up" or "down", with an "error"
-// detail on failure. Pool statistics are intentionally omitted so internal
-// metrics are not exposed publicly.
-func (s *service) Health() map[string]string {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+// Health probes the database with a one-second timeout derived from ctx and
+// returns a status map for the readiness endpoint: "status" is "up" or "down",
+// with an "error" detail on failure. Pool statistics are intentionally omitted
+// so internal metrics are not exposed publicly.
+func (s *service) Health(ctx context.Context) map[string]string {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	stats := make(map[string]string)

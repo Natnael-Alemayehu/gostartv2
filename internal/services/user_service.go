@@ -16,7 +16,7 @@ type userRepo interface {
 	Create(ctx context.Context, params models.UserCreate) (*models.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
-	List(ctx context.Context, limit, offset int32) ([]*models.User, error)
+	List(ctx context.Context, input models.ListUsersInput) ([]*models.User, error)
 	Update(ctx context.Context, id uuid.UUID, params models.UserUpdate) (*models.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -107,22 +107,47 @@ func (s *UserService) GetByEmail(ctx context.Context, email string) (*models.Use
 	return user, nil
 }
 
-// List returns a page of users with the caller's limit and offset clamped to
-// sane bounds (default 20, maximum 100, non-negative offset).
-func (s *UserService) List(ctx context.Context, limit, offset int32) ([]*models.User, error) {
+// ListResult is the service-level response for a paginated user list. It
+// contains the users for the current page and a NextCursor that the caller
+// can pass back to fetch the following page. NextCursor is nil when there
+// are no more rows.
+type ListResult struct {
+	Users      []*models.User
+	NextCursor *models.PageCursor
+}
+
+// List returns a page of users with the caller's limit clamped to sane bounds
+// (default 20, maximum 100). When cursor is nil the first page is returned;
+// otherwise the page starts after the row identified by the cursor. The
+// returned NextCursor is non-nil when more rows may exist.
+func (s *UserService) List(ctx context.Context, limit int32, cursor *models.PageCursor) (*ListResult, error) {
 	if limit <= 0 {
 		limit = 20
 	}
 
 	limit = min(limit, 100)
-	offset = max(offset, 0)
 
-	users, err := s.repo.List(ctx, limit, offset)
+	users, err := s.repo.List(ctx, models.ListUsersInput{
+		Limit:  limit,
+		Cursor: cursor,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
 
-	return users, nil
+	result := &ListResult{
+		Users: users,
+	}
+
+	if len(users) == int(limit) {
+		last := users[len(users)-1]
+		result.NextCursor = &models.PageCursor{
+			CreatedAt: last.CreatedAt,
+			ID:        last.ID,
+		}
+	}
+
+	return result, nil
 }
 
 // Update patches the user identified by id with the non-nil fields of input.

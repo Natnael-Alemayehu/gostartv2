@@ -20,7 +20,7 @@ import (
 type mockUserService struct {
 	createFn func(ctx context.Context, input services.CreateUserInput) (*models.User, error)
 	getFn    func(ctx context.Context, id uuid.UUID) (*models.User, error)
-	listFn   func(ctx context.Context, limit, offset int32) ([]*models.User, error)
+	listFn   func(ctx context.Context, limit int32, cursor *models.PageCursor) (*services.ListResult, error)
 	updateFn func(ctx context.Context, id uuid.UUID, input services.UpdateUserInput) (*models.User, error)
 	deleteFn func(ctx context.Context, id uuid.UUID) error
 }
@@ -43,12 +43,12 @@ func (m *mockUserService) Get(ctx context.Context, id uuid.UUID) (*models.User, 
 	return nil, services.ErrUserNotFound
 }
 
-func (m *mockUserService) List(ctx context.Context, limit, offset int32) ([]*models.User, error) {
+func (m *mockUserService) List(ctx context.Context, limit int32, cursor *models.PageCursor) (*services.ListResult, error) {
 	if m.listFn != nil {
-		return m.listFn(ctx, limit, offset)
+		return m.listFn(ctx, limit, cursor)
 	}
 
-	return nil, nil
+	return &services.ListResult{Users: nil}, nil
 }
 
 func (m *mockUserService) Update(ctx context.Context, id uuid.UUID, input services.UpdateUserInput) (*models.User, error) {
@@ -264,15 +264,17 @@ func TestUserHandler_Get_OK(t *testing.T) {
 
 func TestUserHandler_List(t *testing.T) {
 	h := NewUserHandler(&mockUserService{
-		listFn: func(ctx context.Context, limit, offset int32) ([]*models.User, error) {
-			return []*models.User{
-				{ID: uuid.New(), Email: "a@example.com", Name: "A"},
-				{ID: uuid.New(), Email: "b@example.com", Name: "B"},
+		listFn: func(ctx context.Context, limit int32, cursor *models.PageCursor) (*services.ListResult, error) {
+			return &services.ListResult{
+				Users: []*models.User{
+					{ID: uuid.New(), Email: "a@example.com", Name: "A"},
+					{ID: uuid.New(), Email: "b@example.com", Name: "B"},
+				},
 			}, nil
 		},
 	})
 
-	resp := doRequest(t, h, http.MethodGet, "/api/v1/users?limit=10&offset=0", nil)
+	resp := doRequest(t, h, http.MethodGet, "/api/v1/users?limit=10", nil)
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {

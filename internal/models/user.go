@@ -38,3 +38,19 @@ type UserUpdate struct {
 	PasswordHash *string
 	Name         *string
 }
+
+// PageCursor identifies the last row of a page so the caller can request the
+// next page without using OFFSET. It is built from the (created_at, id) tuple
+// of the last returned row.
+type PageCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+// ListUsersInput is the repository-level request for a page of users. Cursor
+// is nil for the first page; for subsequent pages it is the PageCursor of the
+// last row from the previous page.
+type ListUsersInput struct {
+	Limit  int32
+	Cursor *PageCursor
+}

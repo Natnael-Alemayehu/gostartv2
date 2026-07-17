@@ -117,8 +117,9 @@ When in doubt, defer to the skill. When ignoring a skill rule, add a comment to 
 ### Testing
 - Unit tests use stdlib `testing`.
 - DB integration tests use testcontainers-go (spin up real Postgres).
+- Integration tests MUST use `//go:build integration` build tags to separate from unit tests.
 - Shared testcontainers helper lives in `internal/testutil`.
-- `make test` runs all tests with `-race`; `make itest` runs DB integration tests (`internal/database` + `internal/repositories`).
+- `make test` runs unit tests with `-race` (no integration tag); `make itest` runs integration tests with `-tags=integration -race`.
 - Use `t.Context()` (Go 1.24+) instead of `context.Background()` in tests.
 - Use `t.Cleanup()` for teardown instead of `defer`.
 - Run tests with the race detector: `go test -race ./...`.
@@ -169,8 +170,8 @@ When in doubt, defer to the skill. When ignoring a skill rule, add a comment to 
 ```bash
 make build          # go build -o main cmd/api/main.go
 make run            # go run cmd/api/main.go
-make test           # go test ./... -v -race
-make itest          # go test ./internal/database ./internal/repositories -v -race
+make test           # go test ./... -v -race (unit tests only)
+make itest          # go test -tags=integration ./internal/database ./internal/repositories -v -race
 make lint           # golangci-lint run
 make clean          # rm -f main
 make docker-run     # docker compose up --build

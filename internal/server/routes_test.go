@@ -17,7 +17,7 @@ type mockDB struct {
 	healthy bool
 }
 
-func (m *mockDB) Health() map[string]string {
+func (m *mockDB) Health(ctx context.Context) map[string]string {
 	if m.healthy {
 		return map[string]string{"status": "up", "message": "It's healthy"}
 	}

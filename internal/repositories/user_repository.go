@@ -59,13 +59,20 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	return userToModel(row), nil
 }
 
-// List returns a page of users ordered by the underlying query. limit bounds
-// the page size and offset skips that many leading rows.
-func (r *UserRepository) List(ctx context.Context, limit, offset int32) ([]*models.User, error) {
-	rows, err := r.q.ListUsers(ctx, sqlc.ListUsersParams{
-		Limit:  limit,
-		Offset: offset,
-	})
+// List returns a page of users ordered by created_at DESC, id DESC. When
+// cursor is nil the first page is returned; otherwise the page starts after
+// the row identified by the cursor. limit bounds the page size.
+func (r *UserRepository) List(ctx context.Context, input models.ListUsersInput) ([]*models.User, error) {
+	params := sqlc.ListUsersParams{
+		MaxRows: input.Limit,
+	}
+
+	if input.Cursor != nil {
+		params.CursorCreatedAt = sql.NullTime{Time: input.Cursor.CreatedAt, Valid: true}
+		params.CursorID = uuid.NullUUID{UUID: input.Cursor.ID, Valid: true}
+	}
+
+	rows, err := r.q.ListUsers(ctx, params)
 	if err != nil {
 		return nil, err
 	}

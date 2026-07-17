@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"gostartv2/internal/models"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -15,7 +17,7 @@ type mockUserRepo struct {
 
 	createFn func(ctx context.Context, params models.UserCreate) (*models.User, error)
 	getFn    func(ctx context.Context, id uuid.UUID) (*models.User, error)
-	listFn   func(ctx context.Context, limit, offset int32) ([]*models.User, error)
+	listFn   func(ctx context.Context, input models.ListUsersInput) ([]*models.User, error)
 	updateFn func(ctx context.Context, id uuid.UUID, params models.UserUpdate) (*models.User, error)
 	deleteFn func(ctx context.Context, id uuid.UUID) error
 }
@@ -63,9 +65,9 @@ func (m *mockUserRepo) GetByEmail(ctx context.Context, email string) (*models.Us
 	return nil, sql.ErrNoRows
 }
 
-func (m *mockUserRepo) List(ctx context.Context, limit, offset int32) ([]*models.User, error) {
+func (m *mockUserRepo) List(ctx context.Context, input models.ListUsersInput) ([]*models.User, error) {
 	if m.listFn != nil {
-		return m.listFn(ctx, limit, offset)
+		return m.listFn(ctx, input)
 	}
 
 	users := make([]*models.User, 0, len(m.users))
@@ -184,20 +186,73 @@ func TestUserService_List_DefaultsAndClamps(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserService(repo)
 
-	calls := []struct{ limit, offset int32 }{}
-	repo.listFn = func(ctx context.Context, limit, offset int32) ([]*models.User, error) {
-		calls = append(calls, struct{ limit, offset int32 }{limit, offset})
+	var calls []int32
+
+	repo.listFn = func(ctx context.Context, input models.ListUsersInput) ([]*models.User, error) {
+		calls = append(calls, input.Limit)
+
 		return nil, nil
 	}
 
-	_, _ = svc.List(t.Context(), 0, -1)
-	if calls[0].limit != 20 || calls[0].offset != 0 {
-		t.Errorf("expected default limit=20 offset=0, got limit=%d offset=%d", calls[0].limit, calls[0].offset)
+	_, _ = svc.List(t.Context(), 0, nil)
+	if calls[0] != 20 {
+		t.Errorf("expected default limit=20, got %d", calls[0])
 	}
 
-	_, _ = svc.List(t.Context(), 500, 0)
-	if calls[1].limit != 100 {
-		t.Errorf("expected clamped limit=100, got %d", calls[1].limit)
+	_, _ = svc.List(t.Context(), 500, nil)
+	if calls[1] != 100 {
+		t.Errorf("expected clamped limit=100, got %d", calls[1])
+	}
+}
+
+func TestUserService_List_CursorPropagation(t *testing.T) {
+	repo := newMockUserRepo()
+	svc := NewUserService(repo)
+
+	cursor := &models.PageCursor{
+		CreatedAt: time.Now(),
+		ID:        uuid.New(),
+	}
+
+	var captured *models.PageCursor
+
+	repo.listFn = func(ctx context.Context, input models.ListUsersInput) ([]*models.User, error) {
+		captured = input.Cursor
+
+		return nil, nil
+	}
+
+	_, _ = svc.List(t.Context(), 10, cursor)
+	if captured == nil || captured.ID != cursor.ID {
+		t.Fatalf("expected cursor to be propagated, got %v", captured)
+	}
+}
+
+func TestUserService_List_NextCursor(t *testing.T) {
+	repo := newMockUserRepo()
+	svc := NewUserService(repo)
+
+	repo.listFn = func(ctx context.Context, input models.ListUsersInput) ([]*models.User, error) {
+		users := make([]*models.User, 0, input.Limit)
+		for i := range input.Limit {
+			users = append(users, &models.User{
+				ID:        uuid.New(),
+				Email:     fmt.Sprintf("user%c@example.com", 'a'+i),
+				Name:      "User",
+				CreatedAt: time.Now(),
+			})
+		}
+
+		return users, nil
+	}
+
+	result, err := svc.List(t.Context(), 3, nil)
+	if err != nil {
+		t.Fatalf("List returned error: %v", err)
+	}
+
+	if result.NextCursor == nil {
+		t.Fatal("expected NextCursor when result count equals limit")
 	}
 }
 

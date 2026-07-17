@@ -54,7 +54,7 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
-	stats := s.db.Health()
+	stats := s.db.Health(r.Context())
 
 	if stats[statusKey] != "up" {
 		httpx.RespondError(w, http.StatusServiceUnavailable, "db_unavailable", "database is not reachable")

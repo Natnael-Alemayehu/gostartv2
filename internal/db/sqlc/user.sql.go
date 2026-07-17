@@ -101,17 +101,22 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 const listUsers = `-- name: ListUsers :many
 SELECT id, email, password_hash, name, created_at, updated_at
 FROM users
-ORDER BY created_at DESC
-LIMIT $1 OFFSET $2
+WHERE (created_at, id) < (
+    COALESCE($1::timestamptz, 'infinity'::timestamptz),
+    COALESCE($2::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
+)
+ORDER BY created_at DESC, id DESC
+LIMIT $3
 `
 
 type ListUsersParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	CursorCreatedAt sql.NullTime  `json:"cursor_created_at"`
+	CursorID        uuid.NullUUID `json:"cursor_id"`
+	MaxRows         int32         `json:"max_rows"`
 }
 
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, listUsers, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, listUsers, arg.CursorCreatedAt, arg.CursorID, arg.MaxRows)
 	if err != nil {
 		return nil, err
 	}

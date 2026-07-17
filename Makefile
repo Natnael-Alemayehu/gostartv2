@@ -50,14 +50,14 @@ docker-down:
 		docker-compose down; \
 	fi
 
-# Test the application
+# Test the application (unit tests only, no integration tests)
 test:
 	@echo "Testing..."
 	@go test ./... -v -race
-# Integrations Tests for the application
+# Integration tests (requires Docker)
 itest:
 	@echo "Running integration tests..."
-	@go test ./internal/database ./internal/repositories -v -race
+	@go test -tags=integration ./internal/database ./internal/repositories -v -race
 
 # Clean the binary
 clean:

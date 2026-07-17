@@ -16,8 +16,12 @@ WHERE email = sqlc.arg(email);
 -- name: ListUsers :many
 SELECT id, email, password_hash, name, created_at, updated_at
 FROM users
-ORDER BY created_at DESC
-LIMIT $1 OFFSET $2;
+WHERE (created_at, id) < (
+    COALESCE(sqlc.narg(cursor_created_at)::timestamptz, 'infinity'::timestamptz),
+    COALESCE(sqlc.narg(cursor_id)::uuid, '00000000-0000-0000-0000-000000000000'::uuid)
+)
+ORDER BY created_at DESC, id DESC
+LIMIT sqlc.arg(max_rows);
 
 -- name: UpdateUser :one
 UPDATE users
