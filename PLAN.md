@@ -20,6 +20,9 @@ progress. This file can be deleted once all phases are complete.
 | Password hashing | `golang.org/x/crypto/bcrypt` |
 | Validation | `go-playground/validator/v10` |
 | JWT | `golang-jwt/jwt/v5` |
+| Code quality skills | `samber/cc-skills-golang` — Code Quality category (8 skills) |
+| Doc comments | Required on all exported symbols + package declarations |
+| Lint config | Full golangci-lint v2 config (33+ linters) per `golang-lint` skill |
 | Verify gate | Strict: `go build ./...` + `make lint` + `make test` all green per phase |
 | Commit cadence | One commit per completed phase, only after user approval |
 
@@ -118,6 +121,31 @@ sqlc.yaml                  # at root
 
 ---
 
+## Phase 2.5 — Code Quality standards adoption
+
+Adopt the `samber/cc-skills-golang` Code Quality category (8 skills) as the project's code quality authority. See AGENTS.md for the full conventions.
+
+- [ ] **2.5.1 Doc comments**
+  - Add godoc comments to all exported functions, methods, types, constants
+  - Add `// Package foo ...` declarations to every package
+  - Follow `golang-documentation` skill conventions
+- [ ] **2.5.2 Blank imports cleanup**
+  - Move `_ "github.com/jackc/pgx/v5/stdlib"` to `cmd/api/main.go` and `cmd/migrate/main.go`
+  - Remove blank imports from `internal/database` and `internal/testutil`
+- [ ] **2.5.3 Sentinel error package prefix**
+  - Update existing sentinel errors to include package prefix
+  - e.g. `errors.New("services: user not found")`
+- [ ] **2.5.4 Expand `.golangci.yml`**
+  - Adopt `golang-lint` skill's recommended 33-linter config
+  - Add gosec, bodyclose, sqlclosecheck, errorlint, nolintlint, etc.
+  - Add gofumpt formatter
+- [ ] **2.5.5 Fix lint issues**
+  - Run `golangci-lint run --fix ./...` for auto-fixable issues
+  - Manually fix remaining issues from expanded linter set
+- [ ] **2.5.6 Verify gate** — build + lint + test all green
+
+---
+
 ## Phase 3 — Auth (JWT access + refresh)
 
 - [ ] **3.1 `internal/auth`**
@@ -144,16 +172,16 @@ sqlc.yaml                  # at root
 ## Phase 4 — CI, docs, hardening
 
 - [ ] **4.1 CI improvements**
-  - golangci-lint job
+  - golangci-lint job (full 33-linter config from Phase 2.5)
   - `govulncheck` security scan
+  - `gosec` SAST scan (per `golang-security` skill)
   - Fix `go-test` Go version to match go.mod
   - Docker-skip guard for integration tests when Docker is absent
-- [ ] **4.2 README rewrite**
-  - Architecture overview
-  - Env var table
-  - API endpoints documentation
-  - "How to add a resource" guide
-  - Dev setup instructions
+- [ ] **4.2 Documentation (per `golang-documentation` skill)**
+  - README rewrite (architecture overview, env var table, API endpoints, "How to add a resource" guide, dev setup)
+  - CONTRIBUTING.md (per `golang-documentation` skill — prerequisites, clone, build, test, PR process)
+  - CHANGELOG.md (Keep a Changelog format)
+  - llms.txt (AI-friendly project overview)
 - [ ] **4.3 Docker hardening**
   - Non-root user in final image
   - Add `ca-certificates`
