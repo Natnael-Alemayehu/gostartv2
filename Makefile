@@ -57,7 +57,7 @@ test:
 # Integration tests (requires Docker)
 itest:
 	@echo "Running integration tests..."
-	@go test -tags=integration ./internal/database ./internal/repositories -v -race
+	@go test -tags=integration ./internal/database ./internal/repositories ./internal/auth -v -race
 
 # Clean the binary
 clean:

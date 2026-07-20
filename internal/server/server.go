@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"gostartv2/internal/auth"
 	"gostartv2/internal/config"
 	"gostartv2/internal/database"
 	"gostartv2/internal/handlers"
@@ -24,6 +25,8 @@ type Server struct {
 	logger      *slog.Logger
 	db          database.Service
 	userHandler *handlers.UserHandler
+	authHandler *handlers.AuthHandler
+	verifier    *auth.Verifier
 }
 
 // NewServer builds the dependency graph from the database up to the handlers,
@@ -33,11 +36,23 @@ func NewServer(cfg *config.Config, logger *slog.Logger, db database.Service) *ht
 	repos := repositories.NewRepositories(db.DB())
 	userSvc := services.NewUserService(repos.Users)
 
+	signer := auth.NewSigner(cfg.JWT.Secret, cfg.JWT.Issuer, cfg.JWT.AccessTTL)
+	verifier := auth.NewVerifier(cfg.JWT.Secret, cfg.JWT.Issuer)
+	authSvc := services.NewAuthService(repos.Users, repos.RefreshTokens, signer, cfg.JWT.RefreshTTL)
+
 	s := &Server{
 		cfg:         cfg,
 		logger:      logger,
 		db:          db,
 		userHandler: handlers.NewUserHandler(userSvc),
+		authHandler: handlers.NewAuthHandler(
+			authSvc,
+			verifier,
+			cfg.JWT.AccessTTL,
+			cfg.JWT.RefreshTTL,
+			cfg.IsProd,
+		),
+		verifier: verifier,
 	}
 
 	server := &http.Server{

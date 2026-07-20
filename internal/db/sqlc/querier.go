@@ -12,11 +12,16 @@ import (
 
 type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
+	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
+	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	RevokeAllForUser(ctx context.Context, userID uuid.UUID) error
+	RevokeChain(ctx context.Context, chainID uuid.UUID) error
+	RevokeRefreshToken(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 

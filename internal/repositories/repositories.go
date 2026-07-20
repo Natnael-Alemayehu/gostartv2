@@ -16,7 +16,8 @@ import (
 // layer. It is the unit passed around at runtime and the unit scoped to a
 // transaction by WithTx.
 type Repositories struct {
-	Users *UserRepository
+	Users         *UserRepository
+	RefreshTokens *RefreshTokenRepository
 
 	db *sql.DB
 }
@@ -27,8 +28,9 @@ func NewRepositories(db *sql.DB) *Repositories {
 	q := sqlc.New(db)
 
 	return &Repositories{
-		Users: NewUserRepository(q),
-		db:    db,
+		Users:         NewUserRepository(q),
+		RefreshTokens: NewRefreshTokenRepository(q),
+		db:            db,
 	}
 }
 
@@ -44,7 +46,8 @@ func (r *Repositories) WithTx(ctx context.Context, fn func(ctx context.Context, 
 	}
 
 	txR := &Repositories{
-		Users: NewUserRepository(sqlc.New(tx)),
+		Users:         NewUserRepository(sqlc.New(tx)),
+		RefreshTokens: NewRefreshTokenRepository(sqlc.New(tx)),
 	}
 
 	defer func() {

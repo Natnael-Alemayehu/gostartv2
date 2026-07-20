@@ -24,3 +24,26 @@ sql:
             go_type:
               import: "time"
               type: "Time"
+          - column: "refresh_tokens.id"
+            go_type: "github.com/google/uuid.UUID"
+          - column: "refresh_tokens.user_id"
+            go_type: "github.com/google/uuid.UUID"
+          - column: "refresh_tokens.chain_id"
+            go_type: "github.com/google/uuid.UUID"
+          - column: "refresh_tokens.revoked_at"
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - column: "refresh_tokens.expires_at"
+            go_type:
+              import: "time"
+              type: "Time"
+          - column: "refresh_tokens.created_at"
+            go_type:
+              import: "time"
+              type: "Time"
+          - column: "refresh_tokens.updated_at"
+            go_type:
+              import: "time"
+              type: "Time"
