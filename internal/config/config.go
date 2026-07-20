@@ -129,25 +129,27 @@ func Load() (*Config, error) {
 
 // Validate reports every missing required value in a single error so
 // misconfiguration is diagnosed in one pass. In production it additionally
-// enforces a non-wildcard CORS origin and a JWT secret.
+// enforces a non-wildcard CORS origin and a JWT secret of at least 16 bytes.
 func (c *Config) Validate() error {
 	var missing []string
 
-	if c.DB.Host == "" {
+	if os.Getenv("DB_HOST") == "" && c.DB.Host == "" {
 		missing = append(missing, "DB_HOST")
 	}
 
-	if c.DB.Name == "" {
+	if os.Getenv("DB_NAME") == "" && c.DB.Name == "" {
 		missing = append(missing, "DB_NAME")
 	}
 
-	if c.DB.User == "" {
+	if os.Getenv("DB_USER") == "" && c.DB.User == "" {
 		missing = append(missing, "DB_USER")
 	}
 
 	if c.IsProd {
 		if c.JWT.Secret == "" {
 			missing = append(missing, "JWT_SECRET (required in production)")
+		} else if len(c.JWT.Secret) < 16 {
+			missing = append(missing, "JWT_SECRET (must be at least 16 characters in production)")
 		}
 
 		if len(c.CORS.AllowedOrigins) == 1 && c.CORS.AllowedOrigins[0] == "*" {

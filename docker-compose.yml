@@ -28,6 +28,12 @@ services:
     depends_on:
       psql_bp:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - gostartv2
   psql_bp:

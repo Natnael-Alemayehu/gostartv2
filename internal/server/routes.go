@@ -31,9 +31,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public auth endpoints. login and refresh rely on credentials /
 		// cookies; logout-all mounts behind the Auth middleware so the
-		// caller must supply a valid access token.
+		// caller must supply a valid access token. Login is rate-limited
+		// to mitigate brute-force attacks.
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/login", s.authHandler.Login)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RateLimit(5, 10))
+				r.Post("/login", s.authHandler.Login)
+			})
 			r.Post("/refresh", s.authHandler.Refresh)
 			r.Post("/logout", s.authHandler.Logout)
 			r.Group(func(r chi.Router) {
@@ -42,11 +46,15 @@ func (s *Server) RegisterRoutes() http.Handler {
 			})
 		})
 
-		// User resource: POST stays public as registration; GET/PUT/DELETE
-		// require a valid access token whose user id may be extracted via
+		// User resource: POST stays public as registration (rate-limited to
+		// mitigate automated account creation); GET/PUT/DELETE require a
+		// valid access token whose user id may be extracted via
 		// middleware.UserFromContext.
 		r.Route("/users", func(r chi.Router) {
-			r.Post("/", s.userHandler.Create)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RateLimit(3, 5))
+				r.Post("/", s.userHandler.Create)
+			})
 
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.Auth(s.verifier))

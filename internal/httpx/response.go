@@ -48,9 +48,15 @@ func RespondNoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// DecodeJSON parses the request body into dst and returns the decoder's error
-// directly. Handlers should translate syntax and type errors into a 400 via
-// RespondError rather than surfacing the raw error to clients.
+// MaxRequestBodyBytes is the default upper bound on JSON request bodies. 1 MB
+// is generous for the current DTOs (user registration, login) while preventing
+// unbounded memory consumption from malicious or buggy clients.
+const MaxRequestBodyBytes = 1 << 20 // 1 MB
+
+// DecodeJSON parses the request body into dst with a size limit of
+// MaxRequestBodyBytes. Handlers should translate syntax and type errors into
+// a 400 via RespondError rather than surfacing the raw error to clients.
 func DecodeJSON(r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, MaxRequestBodyBytes)
 	return json.NewDecoder(r.Body).Decode(dst)
 }

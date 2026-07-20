@@ -5,8 +5,8 @@ all: build test
 
 build:
 	@echo "Building..."
-	
-	
+
+
 	@go build -o main cmd/api/main.go
 
 # Run the application
@@ -68,6 +68,10 @@ clean:
 lint:
 	@golangci-lint run
 
+# Full verify gate: build + lint + test (run before committing)
+verify: build lint test
+	@echo "Verify gate passed."
+
 # Live Reload
 watch:
 	@if command -v air > /dev/null; then \
@@ -85,4 +89,22 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch docker-run docker-down itest lint migrate-up migrate-down migrate-status sqlc-gen
+# Show all available make targets
+help:
+	@echo "Available make targets:"
+	@echo "  build            Build the binary"
+	@echo "  run              Run the server"
+	@echo "  test             Unit tests with -race"
+	@echo "  itest            Integration tests (requires Docker)"
+	@echo "  lint             Run golangci-lint"
+	@echo "  verify           Build + lint + test (full gate)"
+	@echo "  sqlc-gen         Regenerate sqlc code"
+	@echo "  migrate-up       Apply migrations"
+	@echo "  migrate-down     Roll back one migration"
+	@echo "  migrate-status   Show migration status"
+	@echo "  docker-run       Start Postgres + app via compose"
+	@echo "  docker-down      Stop compose services"
+	@echo "  watch            Live reload with air"
+	@echo "  clean            Remove build artifacts"
+
+.PHONY: all build run test clean watch docker-run docker-down itest lint verify help migrate-up migrate-down migrate-status sqlc-gen

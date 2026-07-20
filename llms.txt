@@ -1,0 +1,79 @@
+# gostartv2
+
+> An opinionated Go backend starter project — layered architecture, JWT auth, sqlc + goose, and strict code-quality tooling.
+
+## Overview
+
+gostartv2 is a reusable foundation for future Go backend projects. It provides a complete, production-leaning skeleton with layered architecture (handlers → services → repositories → models), JWT authentication with rotating refresh tokens, sqlc-generated type-safe database queries, goose SQL migrations, structured logging with slog, and a strict 40+ linter golangci-lint configuration.
+
+## Tech Stack
+
+- Go 1.26
+- chi v5 (HTTP router)
+- sqlc (type-safe SQL → Go)
+- goose (SQL migrations, embedded)
+- pgx/v5 via database/sql
+- golang-jwt/jwt/v5 (JWT auth)
+- bcrypt (password hashing)
+- validator/v10 (request validation)
+- log/slog (structured logging)
+- testcontainers-go (integration tests)
+
+## Project Structure
+
+```
+cmd/api/main.go              → entry point, bootstrap, graceful shutdown
+cmd/migrate/main.go          → goose migration runner (explicit CLI)
+internal/
+  config/                    → typed Config struct, env loading + validation
+  logging/                   → slog setup (JSON prod, text dev)
+  httpx/                     → JSON response/error helpers, error envelope
+  middleware/                → Recoverer, RequestID, CORS, Auth, RateLimit, Logger
+  database/                  → pgx pool + health check
+  db/sqlc/                   → sqlc-generated code (DO NOT EDIT)
+  repositories/              → hand-written repos over sqlc queries + tx helpers
+  services/                  → business logic layer + sentinel errors
+  handlers/                  → HTTP handlers, DTOs, request validation
+  auth/                      → JWT sign/verify, refresh tokens, auth errors
+  models/                    → domain types
+  testutil/                  → testcontainers Postgres helper
+db/queries/*.sql             → sqlc query sources
+migrations/*.sql             → goose SQL migrations (embedded via go:embed)
+```
+
+## API Endpoints
+
+- GET /health — liveness
+- GET /ready — DB readiness
+- POST /api/v1/auth/login — exchange credentials for tokens
+- POST /api/v1/auth/refresh — rotate refresh token
+- POST /api/v1/auth/logout — revoke refresh token
+- POST /api/v1/auth/logout-all — revoke all sessions (Bearer required)
+- POST /api/v1/users — register a new user (public, rate-limited)
+- GET /api/v1/users — list users (Bearer, cursor pagination)
+- GET /api/v1/users/{id} — get user (Bearer)
+- PUT /api/v1/users/{id} — update user (Bearer)
+- DELETE /api/v1/users/{id} — delete user (Bearer)
+
+## Key Conventions
+
+- Layered: handlers → services → repositories → models
+- Doc comments on all exported symbols
+- Sentinel errors with package prefix (e.g. "services: user not found")
+- consumer-side interfaces (defined where consumed, not where implemented)
+- //go:build integration for DB integration tests
+- No os.Getenv outside internal/config
+- golangci-lint v2 with 40+ linters
+
+## Environment Variables
+
+18 env vars — see .env.example for the full list with defaults and comments.
+
+## Make Targets
+
+make verify — build + lint + test (full gate)
+make test — unit tests with -race
+make itest — integration tests (requires Docker)
+make lint — golangci-lint
+make sqlc-gen — regenerate sqlc code
+make migrate-up — apply migrations
