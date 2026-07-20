@@ -1,0 +1,38 @@
+# Version control
+.git
+.gitignore
+
+# Environment files (secrets — must never enter image layers)
+.env
+.env.*
+
+# IDE / editor
+.vscode
+.idea
+.DS_Store
+
+# Build artifacts
+main
+*.test
+*.exe
+*.out
+
+# Air live-reload
+.air.toml
+tmp/
+
+# Documentation / planning (not needed in runtime image)
+README.md
+PLAN.md
+AGENTS.md
+LICENSE
+
+# CI / lint config (not needed in runtime image)
+.github/
+.golangci.yml
+.goreleaser.yml
+
+# Docker themselves
+Dockerfile
+docker-compose.yml
+.dockerignore

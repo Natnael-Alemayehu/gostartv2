@@ -4,7 +4,7 @@ before:
   - go mod tidy
 
 env:
-  - PACKAGE_PATH=github.com/Natnael-Alemayehu/gostartv2/cmd/api
+  - PACKAGE_PATH=gostartv2/cmd/api
 
 builds:
 - binary: "{{ .ProjectName }}"
@@ -37,6 +37,7 @@ archives:
       owner: root
     files:
       - README.md
+      - LICENSE
 
 checksum:
   name_template: 'checksums.txt'

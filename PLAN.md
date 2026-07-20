@@ -148,45 +148,99 @@ Adopt the `samber/cc-skills-golang` Code Quality category (8 skills) as the proj
 
 ## Phase 3 — Auth (JWT access + refresh)
 
-- [ ] **3.1 `internal/auth`**
+- [x] **3.1 `internal/auth`**
   - JWT sign/verify (`golang-jwt/jwt/v5`)
   - Claims struct, token generation
   - Refresh token generation
-- [ ] **3.2 Refresh token storage**
+- [x] **3.2 Refresh token storage**
   - `refresh_tokens` migration
   - `RefreshTokenRepository` (DB-stored, hashed)
-- [ ] **3.3 `AuthService`**
-  - register, login, refresh, logout
-- [ ] **3.4 Auth routes**
-  - `/api/v1/auth/{register,login,refresh,logout}`
-- [ ] **3.5 Auth middleware**
+- [x] **3.3 `AuthService`**
+  - login, refresh, logout, logout-all
+  - **Deviation:** registration lives at `POST /api/v1/users` (public, from Phase 2)
+    rather than `/api/v1/auth/register`. The auth route group does not
+    expose a register endpoint.
+- [x] **3.4 Auth routes**
+  - `/api/v1/auth/{login,refresh,logout,logout-all}`
+- [x] **3.5 Auth middleware**
   - Verify access token, inject user into context
   - Protect `/users` routes (except create/register as appropriate)
-- [ ] **3.6 Tests**
-  - Auth flow integration tests
+- [x] **3.6 Tests**
+  - Auth flow integration tests (E2E against real Postgres)
   - Middleware unit tests
-- [ ] **3.7 Verify gate** — build + lint + test all green
+- [x] **3.7 Verify gate** — build + lint + test all green
 
 ---
 
 ## Phase 4 — CI, docs, hardening
 
-- [ ] **4.1 CI improvements**
-  - golangci-lint job (full 33-linter config from Phase 2.5)
+Split into 4a (critical fixes discovered by the Phase 3 audit) and 4b
+(docs, CI, and hardening from the original plan).
+
+### 4a — Critical fixes (audit findings)
+
+- [ ] **4a.1 `.dockerignore`**
+  - Exclude `.env`, `.git/`, `tmp/`, `main` from Docker build context
+  - Prevents `COPY . .` from copying secrets into image layers
+- [ ] **4a.2 Fix goreleaser version injection**
+  - `-X` ldflag path is `github.com/Natnael-Alemayehu/gostartv2/cmd/api` but
+    module is `gostartv2`; released binaries report `Version = "dev"`
+  - Either rename module to `github.com/Natnael-Alemayehu/gostartv2` or
+    fix the ldflag path
+- [ ] **4a.3 Add lint job to CI**
+  - `.github/workflows/go-test.yml` only runs build + test; no lint job
+  - Add `golangci/golangci-lint-action` job so the verify gate is enforced on PRs
+- [ ] **4a.4 README rewrite**
+  - Current README is Melkey Go Blueprint boilerplate
+  - Needs: project description, architecture overview, env var table, API
+    endpoint docs, dev setup guide, migration instructions, "How to add a
+    resource" guide, auth flow documentation
+- [ ] **4a.5 `.env.example`**
+  - 18 env vars exist in `.env` but are undiscoverable without reading
+    `config.go`; provide a template with defaults and comments
+- [ ] **4a.6 Update PLAN.md**
+  - Phase 3 checkboxes were unchecked but code was committed; fixed here
+
+### 4b — Docs, CI, hardening (original Phase 4 scope)
+
+- [ ] **4b.1 CI improvements**
   - `govulncheck` security scan
   - `gosec` SAST scan (per `golang-security` skill)
-  - Fix `go-test` Go version to match go.mod
-  - Docker-skip guard for integration tests when Docker is absent
-- [ ] **4.2 Documentation (per `golang-documentation` skill)**
-  - README rewrite (architecture overview, env var table, API endpoints, "How to add a resource" guide, dev setup)
-  - CONTRIBUTING.md (per `golang-documentation` skill — prerequisites, clone, build, test, PR process)
+  - Fix `go-test` Go version to match go.mod (currently pinned `1.26.x`)
+  - Add `-race` flag to CI test job (currently missing)
+  - Add integration test job (`-tags=integration`) with Docker-skip guard
+  - Add `go mod tidy` check (`git diff --exit-code`)
+  - Add sqlc-freshness check (`sqlc generate` + `git diff --exit-code`)
+- [ ] **4b.2 Documentation (per `golang-documentation` skill)**
+  - CONTRIBUTING.md (prerequisites, clone, build, test, PR process)
   - CHANGELOG.md (Keep a Changelog format)
   - llms.txt (AI-friendly project overview)
-- [ ] **4.3 Docker hardening**
+- [ ] **4b.3 Docker hardening**
   - Non-root user in final image
   - Add `ca-certificates`
-- [ ] **4.4 Project hygiene**
+  - Pin base image versions consistently (build stage unpinned, runtime pinned)
+  - Add app healthcheck in compose
+  - Document `.env` DB_HOST trap (compose `psql_bp` vs host `localhost`)
+  - Document migration step (`docker compose up` starts app with no tables)
+- [ ] **4b.4 Project hygiene**
   - Dependabot config
   - `.editorconfig`
   - Optional: Docker image publish job in CI
-- [ ] **4.5 Final verify gate** — build + lint + test all green
+  - Rename module to `github.com/Natnael-Alemayehu/gostartv2` (repo-qualified)
+  - Run `go mod tidy` (jwt/v5 is in indirect require block)
+  - Add `make verify` aggregate target (build + lint + test)
+  - Add `make help` self-documenting target
+- [ ] **4b.5 Security & observability hardening**
+  - Add request body size limit (`http.MaxBytesReader`) to `DecodeJSON`
+  - Add rate limiting middleware (login brute force, public registration)
+  - Replace chi Logger with slog-based request logging (JSON in prod)
+  - Wire request-scoped logger via middleware (request IDs in log records)
+  - Add minimum-length validation for `JWT_SECRET` in prod
+  - Fix dead required-var validation (defaults applied before emptiness check)
+  - Document authorization non-goal (any authenticated user can access any
+    other user's data; no ownership check or roles)
+  - Optional: security-headers middleware (X-Content-Type-Options, etc.)
+  - Optional: expired-refresh-token purge job
+- [ ] **4b.6 Missing tests**
+  - Unit tests for `config`, `logging`, `httpx` packages
+- [ ] **4b.7 Final verify gate** — build + lint + test + itest all green
