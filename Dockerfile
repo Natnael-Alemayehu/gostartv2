@@ -9,7 +9,7 @@ COPY . .
 
 RUN go build -ldflags "-s -w -X main.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" -o main cmd/api/main.go
 
-FROM alpine:3.22 AS prod
+FROM alpine:3.24 AS prod
 
 RUN apk add --no-cache ca-certificates tzdata
 
